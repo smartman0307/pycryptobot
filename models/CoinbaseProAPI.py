@@ -153,8 +153,6 @@ class CoinbaseProAPI():
             'size': cryptoAmount
         }
 
-        print (order)
-
         model = CoinbaseProAPI(self.api_key, self.api_secret, self.api_pass, self.api_url)
         return model.authAPIPOST('orders', order)
 
