@@ -1,6 +1,5 @@
 """Runs x number of simulations using random time frames"""
 
-import math
 import random, re
 import pandas as pd
 from datetime import datetime, timedelta
@@ -153,15 +152,11 @@ def runExperiment(id, market='BTC-GBP', granularity=3600, mostRecent=True):
     print('')
     print(df_orders)
 
-    def truncate(f, n):
-        return math.floor(f * 10 ** n) / 10 ** n
-
-    # if the last transaction was a buy add the open amount to the closing balance
-    result = truncate(round((account.getBalance() + addBalance) - 1000, 2), 2)
+    result = '{:.2f}'.format(round((account.getBalance() + addBalance) - 1000, 2))
 
     print('')
     print("Opening balance:", 1000)
-    print("Closing balance:", truncate(round(account.getBalance() + addBalance, 2), 2))
+    print("Closing balance:", '{:.2f}'.format(round(account.getBalance() + addBalance, 2)))
     print("         Result:", result)
     print('')
 

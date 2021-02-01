@@ -1,7 +1,9 @@
 """Coinbase Pro trading account, simulated or live depending on if the config file is provided"""
 
 import pandas as pd
-import json, math, re, requests
+import json
+import re
+import requests
 from datetime import datetime
 from models.CoinbaseProAPI import CoinbaseProAPI
 
@@ -66,9 +68,6 @@ class TradingAccount():
         # if trading account is for testing it will be instantiated with a balance of 1000
         self.balance = 1000
         self.orders = pd.DataFrame()
-
-    def truncate(self, f, n):
-        return math.floor(f * 10 ** n) / 10 ** n
 
     def getOrders(self, market='', action='', status='all'):
         """Retrieves orders either live or simulation
@@ -135,13 +134,13 @@ class TradingAccount():
                 else:
                     # return balance of specified currency (if positive)
                     if currency in ['EUR','GBP','USD']:
-                        return self.truncate(float(df[df['currency'] == currency]['available'].values[0]), 2)
+                        return float("{:.2f}".format(float(df[df['currency'] == currency]['available'].values[0])))
                     else:
-                        return self.truncate(float(df[df['currency'] == currency]['available'].values[0]), 4)
+                        return float("{:.4f}".format(float(df[df['currency'] == currency]['available'].values[0])))
                         
         else:
             # return dummy balance
-            return self.truncate(float(self.balance), 2)
+            return float("{:.2f}".format(float(self.balance)))
 
     def buy(self, cryptoMarket, fiatMarket, fiatAmount, manualPrice=0.00000000):
         """Places a buy order either live or simulation
