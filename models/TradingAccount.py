@@ -1,9 +1,7 @@
 """Coinbase Pro trading account, simulated or live depending on if the config file is provided"""
 
 import pandas as pd
-import json
-import re
-import requests
+import json, math, re, requests
 from datetime import datetime
 from models.CoinbaseProAPI import CoinbaseProAPI
 
@@ -66,8 +64,12 @@ class TradingAccount():
             self.mode = 'test'
 
         # if trading account is for testing it will be instantiated with a balance of 1000
-        self.balance = 1000
+        self.balance = pd.DataFrame([['FIAT',1000,0,1000],['CRYPTO',0,0,0]], columns=['currency','balance','hold','available'])
+        
         self.orders = pd.DataFrame()
+
+    def truncate(self, f, n):
+        return math.floor(f * 10 ** n) / 10 ** n
 
     def getOrders(self, market='', action='', status='all'):
         """Retrieves orders either live or simulation
@@ -119,8 +121,7 @@ class TradingAccount():
 
         if self.mode == 'live':
             # if config is provided and live connect to Coinbase Pro account portfolio
-            model = CoinbaseProAPI(
-                self.api_key, self.api_secret, self.api_pass, self.api_url)
+            model = CoinbaseProAPI(self.api_key, self.api_secret, self.api_pass, self.api_url)
             if currency == '':
                 # retrieve all balances
                 return model.getAccounts()[['currency', 'balance', 'hold', 'available']]
@@ -134,13 +135,36 @@ class TradingAccount():
                 else:
                     # return balance of specified currency (if positive)
                     if currency in ['EUR','GBP','USD']:
-                        return float("{:.2f}".format(float(df[df['currency'] == currency]['available'].values[0])))
+                        return self.truncate(float(df[df['currency'] == currency]['available'].values[0]), 2)
                     else:
-                        return float("{:.4f}".format(float(df[df['currency'] == currency]['available'].values[0])))
+                        return self.truncate(float(df[df['currency'] == currency]['available'].values[0]), 4)
                         
         else:
-            # return dummy balance
-            return float("{:.2f}".format(float(self.balance)))
+            # return dummy balances
+
+            if currency == '':
+                # retrieve all balances
+                return self.balance
+            else:
+                # replace FIAT and CRYPTO placeholders
+                if currency in ['EUR','GBP','USD']:
+                    self.balance = self.balance.replace('FIAT', currency)
+                else:
+                    self.balance = self.balance.replace('CRYPTO', currency)
+
+                # retrieve balance of specified currency
+                df = self.balance
+                df_filtered = df[df['currency'] == currency]['available']
+
+                if len(df_filtered) == 0:
+                    # return nil balance if no positive balance was found
+                    return 0.0
+                else:
+                    # return balance of specified currency (if positive)
+                    if currency in ['EUR','GBP','USD']:
+                        return self.truncate(float(df[df['currency'] == currency]['available'].values[0]), 2)
+                    else:
+                        return self.truncate(float(df[df['currency'] == currency]['available'].values[0]), 4)
 
     def buy(self, cryptoMarket, fiatMarket, fiatAmount, manualPrice=0.00000000):
         """Places a buy order either live or simulation
@@ -187,7 +211,7 @@ class TradingAccount():
             print(resp)
         else:
             # fiat amount should exceed balance
-            if fiatAmount > self.balance:
+            if fiatAmount > self.getBalance(fiatMarket):
                 raise Exception('Insufficient funds.')
 
             # manual price must be an integer or float
@@ -218,8 +242,13 @@ class TradingAccount():
                                  'market', 'action', 'type', 'size', 'value', 'status', 'price'], index=[ts])
             self.orders = pd.concat([self.orders, pd.DataFrame(order)], ignore_index=False)
 
-            # update the dummy balance
-            self.balance = self.balance - fiatAmount
+            # update the dummy fiat balance
+            self.balance.loc[self.balance['currency'] == fiatMarket, 'balance'] = self.getBalance(fiatMarket) - fiatAmount
+            self.balance.loc[self.balance['currency'] == fiatMarket, 'available'] = self.getBalance(fiatMarket) - fiatAmount
+
+            # update the dummy crypto balance
+            self.balance.loc[self.balance['currency'] == cryptoMarket, 'balance'] = self.getBalance(cryptoMarket) + (fiatAmountMinusFee / price)
+            self.balance.loc[self.balance['currency'] == cryptoMarket, 'available'] = self.getBalance(cryptoMarket) + (fiatAmountMinusFee / price)
 
     def sell(self, cryptoMarket, fiatMarket, cryptoAmount, manualPrice=0.00000000):
         """Places a sell order either live or simulation
@@ -264,6 +293,10 @@ class TradingAccount():
             # TODO: not finished
             print(resp)
         else:
+            # crypto amount should exceed balance
+            if cryptoAmount > self.getBalance(cryptoMarket):
+                raise Exception('Insufficient funds.')
+
             # manual price must be an integer or float
             if not isinstance(manualPrice, float) and not isinstance(manualPrice, int):
                 raise TypeError('Optional manual price not numeric.')
@@ -291,8 +324,12 @@ class TradingAccount():
             price = ((price * cryptoAmount) * 100) / (cryptoAmount * 100)
             order = pd.DataFrame([[market, 'sell', 'market', cryptoAmountMinusFee, float('{:.8f}'.format(
                 total)), 'done', price]], columns=['market', 'action', 'type', 'size', 'value', 'status', 'price'], index=[ts])
-            self.orders = pd.concat(
-                [self.orders, pd.DataFrame(order)], ignore_index=False)
+            self.orders = pd.concat([self.orders, pd.DataFrame(order)], ignore_index=False)
 
-            # update the dummy balance
-            self.balance = self.balance + total
+            # update the dummy fiat balance
+            self.balance.loc[self.balance['currency'] == fiatMarket, 'balance'] = self.getBalance(fiatMarket) + total
+            self.balance.loc[self.balance['currency'] == fiatMarket, 'available'] = self.getBalance(fiatMarket) + total
+
+            # update the dummy crypto balance
+            self.balance.loc[self.balance['currency'] == cryptoMarket, 'balance'] = self.getBalance(cryptoMarket) - cryptoAmount
+            self.balance.loc[self.balance['currency'] == cryptoMarket, 'available'] = self.getBalance(cryptoMarket) - cryptoAmount

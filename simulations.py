@@ -1,5 +1,6 @@
 """Runs x number of simulations using random time frames"""
 
+import math
 import random, re
 import pandas as pd
 from datetime import datetime, timedelta
@@ -33,6 +34,8 @@ def runExperiment(id, market='BTC-GBP', granularity=3600, mostRecent=True):
     p = re.compile(r"^[A-Z]{3,4}\-[A-Z]{3,4}$")
     if not p.match(market):
         raise TypeError('Coinbase Pro market required.')
+
+    cryptoMarket, fiatMarket = market.split('-',2)
 
     if not isinstance(granularity, int):
         raise TypeError('Granularity integer required.')
@@ -106,9 +109,9 @@ def runExperiment(id, market='BTC-GBP', granularity=3600, mostRecent=True):
                     diff = 0.00
 
             if action == 'buy':
-                account.buy('BTC', 'GBP', 100, row['close'])
+                account.buy(cryptoMarket, fiatMarket, 100, row['close'])
             elif action == 'sell':
-                account.sell('BTC', 'GBP', df_orders.iloc[[-1]]['size'].values[0], row['close'])
+                account.sell(cryptoMarket, fiatMarket, df_orders.iloc[[-1]]['size'].values[0], row['close'])
 
             data_dict = {
                 'market': market,
@@ -152,11 +155,15 @@ def runExperiment(id, market='BTC-GBP', granularity=3600, mostRecent=True):
     print('')
     print(df_orders)
 
-    result = '{:.2f}'.format(round((account.getBalance() + addBalance) - 1000, 2))
+    def truncate(f, n):
+        return math.floor(f * 10 ** n) / 10 ** n
+
+    # if the last transaction was a buy add the open amount to the closing balance
+    result = truncate(round((account.getBalance(fiatMarket) + addBalance) - 1000, 2), 2)
 
     print('')
     print("Opening balance:", 1000)
-    print("Closing balance:", '{:.2f}'.format(round(account.getBalance() + addBalance, 2)))
+    print("Closing balance:", truncate(round(account.getBalance(fiatMarket) + addBalance, 2), 2))
     print("         Result:", result)
     print('')
 
@@ -170,7 +177,7 @@ def runExperiment(id, market='BTC-GBP', granularity=3600, mostRecent=True):
         'start': startDate,
         'end': endDate,
         'open': 1000,
-        'close': '{:.2f}'.format(round(account.getBalance() + addBalance, 2)),
+        'close': '{:.2f}'.format(round(account.getBalance(fiatMarket) + addBalance, 2)),
         'result': result
     }
 
