@@ -178,21 +178,6 @@ class AuthAPI():
         df[['size', 'value']] = df[['size', 'value']].apply(pd.to_numeric)
         return df
 
-    def getFees(self):
-        return self.authAPI('GET', 'fees')
-
-    def getMakerFee(self):
-        fees = self.getFees()
-        return float(fees['maker_fee_rate'].to_string(index=False).strip())
-
-    def getTakerFee(self):
-        fees = self.getFees()
-        return float(fees['taker_fee_rate'].to_string(index=False).strip())
-
-    def getUSDVolume(self):
-        fees = self.getFees()
-        return float(fees['usd_volume'].to_string(index=False).strip())
-
     def marketBuy(self, market='', fiatAmount=0):
         """Executes a market buy providing a funding amount"""
 
@@ -363,7 +348,7 @@ class PublicAPI():
         self.api_url = 'https://api.pro.coinbase.com/'
 
     def getHistoricalData(self, market='BTC-GBP', granularity=86400, iso8601start='', iso8601end=''):
-        # validates the market is syntactically correct
+       # validates the market is syntactically correct
         p = re.compile(r"^[A-Z]{3,4}\-[A-Z]{3,4}$")
         if not p.match(market):
             raise TypeError('Coinbase Pro market required.')
@@ -373,8 +358,8 @@ class PublicAPI():
             raise TypeError('Granularity integer required.')
 
         # validates the granularity is supported by Coinbase Pro
-        if not granularity in [ 60, 300, 900, 3600, 21600, 86400 ]:
-            raise TypeError('Granularity options: 60, 300, 900, 3600, 21600, 86400')
+        if not granularity in [60, 300, 900, 3600, 21600, 86400]:
+            raise TypeError('Granularity options: 60, 300, 900, 3600, 21600, 86400.')
 
         # validates the ISO 8601 start date is a string (if provided)
         if not isinstance(iso8601start, str):

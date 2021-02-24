@@ -307,7 +307,20 @@ class TradingGraphs():
 
         # extract market and granularity from trading dataframe
         market = df.iloc[0].market
-        granularity = df.iloc[0].granularity
+        granularity = int(df.iloc[0].granularity)
+
+        # validates the market is syntactically correct
+        p = re.compile(r"^[A-Z]{3,4}\-[A-Z]{3,4}$")
+        if not p.match(market):
+            raise TypeError('Coinbase Pro market required.')
+
+        # validates granularity is an integer
+        if not isinstance(granularity, int):
+            raise TypeError('Granularity integer required.')
+
+        # validates the granularity is supported by Coinbase Pro
+        if not granularity in [60, 300, 900, 3600, 21600, 86400]:
+            raise TypeError('Granularity options: 60, 300, 900, 3600, 21600, 86400.')
 
         results_ARIMA = self.technical_analysis.seasonalARIMAModel()
 
@@ -364,7 +377,20 @@ class TradingGraphs():
 
         # extract market and granularity from trading dataframe
         market = df.iloc[0].market
-        granularity = df.iloc[0].granularity
+        granularity = int(df.iloc[0].granularity)
+
+        # validates the market is syntactically correct
+        p = re.compile(r"^[A-Z]{3,4}\-[A-Z]{3,4}$")
+        if not p.match(market):
+            raise TypeError('Coinbase Pro market required.')
+
+        # validates granularity is an integer
+        if not isinstance(granularity, int):
+            raise TypeError('Granularity integer required.')
+
+        # validates the granularity is supported by Coinbase Pro
+        if not granularity in [60, 300, 900, 3600, 21600, 86400]:
+            raise TypeError('Granularity options: 60, 300, 900, 3600, 21600, 86400.')
 
         df_subset = df.iloc[-period::]
 
@@ -478,7 +504,20 @@ class TradingGraphs():
 
         # extract market and granularity from trading dataframe
         market = df.iloc[0].market
-        granularity = df.iloc[0].granularity
+        granularity = int(df.iloc[0].granularity)
+
+        # validates the market is syntactically correct
+        p = re.compile(r"^[A-Z]{3,4}\-[A-Z]{3,4}$")
+        if not p.match(market):
+            raise TypeError('Coinbase Pro market required.')
+
+        # validates granularity is an integer
+        if not isinstance(granularity, int):
+            raise TypeError('Granularity integer required.')
+
+        # validates the granularity is supported by Coinbase Pro
+        if not granularity in [60, 300, 900, 3600, 21600, 86400]:
+            raise TypeError('Granularity options: 60, 300, 900, 3600, 21600, 86400.')
 
         # closing price min and max values
         price_min = df.close.min()
@@ -531,7 +570,20 @@ class TradingGraphs():
 
         # extract market and granularity from trading dataframe
         market = df.iloc[0].market
-        granularity = df.iloc[0].granularity
+        granularity = int(df.iloc[0].granularity)
+
+        # validates the market is syntactically correct
+        p = re.compile(r"^[A-Z]{3,4}\-[A-Z]{3,4}$")
+        if not p.match(market):
+            raise TypeError('Coinbase Pro market required.')
+
+        # validates granularity is an integer
+        if not isinstance(granularity, int):
+            raise TypeError('Granularity integer required.')
+
+        # validates the granularity is supported by Coinbase Pro
+        if not granularity in [60, 300, 900, 3600, 21600, 86400]:
+            raise TypeError('Granularity options: 60, 300, 900, 3600, 21600, 86400.')
 
         fig, ax = plt.subplots(ncols=1, figsize=(12, 6)) #pylint: disable=unused-variable
         fig.autofmt_xdate()
