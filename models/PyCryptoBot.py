@@ -28,6 +28,7 @@ parser.add_argument('--sim', type=str, help='simulation modes: fast, fast-sample
 parser.add_argument('--simstartdate', type=str, help="start date for sample simulation e.g '2021-01-15'")
 parser.add_argument('--smartswitch', type=int, help='optionally smart switch between 1 hour and 15 minute intervals')
 parser.add_argument('--verbose', type=int, help='verbose output=1, minimal output=0')
+parser.add_argument('--config', type=str, help="Use the config file at the given location. e.g 'myconfig.json'")
 
 # parse arguments
 args = parser.parse_args()
@@ -39,6 +40,8 @@ class PyCryptoBot():
         self.api_passphrase = ''
         self.api_url = ''
 
+        if args.config != None:
+            filename = args.config
         if args.exchange != None:
             if args.exchange not in [ 'coinbasepro', 'binance', 'dummy' ]:
                 raise TypeError('Invalid exchange: coinbasepro, binance')
@@ -74,7 +77,7 @@ class PyCryptoBot():
                     telegram = config['telegram']
 
                     p1 = re.compile(r"^\d{1,10}:[A-z0-9-_]{35,35}$")
-                    p2 = re.compile(r"^\-*\d{7,10}$")
+                    p2 = re.compile(r"^\d{7,10}$")
 
                     if not p1.match(telegram['token']):
                         print ('Error: Telegram token is invalid')
@@ -1141,15 +1144,17 @@ class PyCryptoBot():
                     date = self.simstartdate.split('-')
                     startDate = datetime(int(date[0]),int(date[1]),int(date[2]))
                     endDate = startDate + timedelta(hours=300)
+
                     while len(tradingData) != 300 and attempts < 10:
-                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(timespec='milliseconds'), endDate.isoformat(timespec='milliseconds'))
+                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(), endDate.isoformat())
                         attempts += 1
                 else:
                     while len(tradingData) != 300 and attempts < 10:
                         endDate = datetime.now() - timedelta(hours=random.randint(0,8760 * 3)) # 3 years in hours
                         startDate = endDate - timedelta(hours=300)
-                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(timespec='milliseconds'), endDate.isoformat(timespec='milliseconds'))
+                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(), endDate.isoformat())
                         attempts += 1
+        
                     if len(tradingData) != 300:
                         raise Exception('Unable to retrieve 300 random sets of data between ' + str(startDate) + ' and ' + str(endDate) + ' in ' + str(attempts) + ' attempts.')
 
