@@ -77,7 +77,7 @@ class PyCryptoBot():
                     telegram = config['telegram']
 
                     p1 = re.compile(r"^\d{1,10}:[A-z0-9-_]{35,35}$")
-                    p2 = re.compile(r"^\d{7,10}$")
+                    p2 = re.compile(r"^\-*\d{7,10}$")
 
                     if not p1.match(telegram['token']):
                         print ('Error: Telegram token is invalid')
@@ -1144,17 +1144,15 @@ class PyCryptoBot():
                     date = self.simstartdate.split('-')
                     startDate = datetime(int(date[0]),int(date[1]),int(date[2]))
                     endDate = startDate + timedelta(hours=300)
-
                     while len(tradingData) != 300 and attempts < 10:
-                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(), endDate.isoformat())
+                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(timespec='milliseconds'), endDate.isoformat(timespec='milliseconds'))
                         attempts += 1
                 else:
                     while len(tradingData) != 300 and attempts < 10:
                         endDate = datetime.now() - timedelta(hours=random.randint(0,8760 * 3)) # 3 years in hours
                         startDate = endDate - timedelta(hours=300)
-                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(), endDate.isoformat())
+                        tradingData = self.getHistoricalData(self.getMarket(), self.getGranularity(), startDate.isoformat(timespec='milliseconds'), endDate.isoformat(timespec='milliseconds'))
                         attempts += 1
-        
                     if len(tradingData) != 300:
                         raise Exception('Unable to retrieve 300 random sets of data between ' + str(startDate) + ' and ' + str(endDate) + ' in ' + str(attempts) + ' attempts.')
 
