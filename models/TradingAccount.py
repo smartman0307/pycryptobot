@@ -10,7 +10,7 @@ from models.Binance import AuthAPI as BAuthAPI, PublicAPI as BPublicAPI
 from models.CoinbasePro import AuthAPI as CBAuthAPI, PublicAPI as CBPublicAPI
 
 class TradingAccount():
-    def __init__(self, app=None):
+    def __init__(self, app={}):
         """Trading account object model
 
         Parameters
@@ -20,7 +20,7 @@ class TradingAccount():
         """
 
         # config needs to be a dictionary, empty or otherwise
-        if app == None:
+        if not isinstance(app, object):
             raise TypeError('App is not a PyCryptoBot object.')
 
         if app.getExchange() == 'binance':
