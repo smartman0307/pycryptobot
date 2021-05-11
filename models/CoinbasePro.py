@@ -9,8 +9,7 @@ from requests import Request
 # Constants
 
 MARGIN_ADJUSTMENT = 0.0025
-DEFAULT_MAKER_FEE_RATE = 0.005
-DEFAULT_TAKER_FEE_RATE = 0.005
+DEFAULT_FEE_RATE = 0.005
 MINIMUM_TRADE_AMOUNT = 10
 SUPPORTED_GRANULARITY = [60, 300, 900, 3600, 21600, 86400]
 FREQUENCY_EQUIVALENTS = ["T", "5T", "15T", "H", "6H", "D"]
@@ -18,11 +17,9 @@ MAX_GRANULARITY = max(SUPPORTED_GRANULARITY)
 DEFAULT_MARKET = "BTC-GBP"
 
 class AuthAPIBase():
-    def _isMarketValid(self, market: str) -> bool:
+    def _isMarketValid(self, market: str):
         p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
-        if p.match(market):
-            return True
-        return False
+        return p.match(market)
 
 class AuthAPI(AuthAPIBase):
     def __init__(self, api_key='', api_secret='', api_passphrase='', api_url='https://api.pro.coinbase.com') -> None:
@@ -145,8 +142,8 @@ class AuthAPI(AuthAPIBase):
             fees = self.getFees()
         
         if len(fees) == 0 or 'maker_fee_rate' not in fees:
-            print (f"error: 'maker_fee_rate' not in fees (using {DEFAULT_MAKER_FEE_RATE} as a fallback)")
-            return DEFAULT_MAKER_FEE_RATE
+            print (f"error: 'maker_fee_rate' not in fees (using {DEFAULT_FEE_RATE} as a fallback)")
+            return DEFAULT_FEE_RATE
 
         return float(fees['maker_fee_rate'].to_string(index=False).strip())
 
@@ -157,8 +154,8 @@ class AuthAPI(AuthAPIBase):
             fees = self.getFees()
 
         if len(fees) == 0 or 'taker_fee_rate' not in fees:
-            print (f"error: 'taker_fee_rate' not in fees (using {DEFAULT_TAKER_FEE_RATE} as a fallback)")
-            return DEFAULT_TAKER_FEE_RATE
+            print (f"error: 'taker_fee_rate' not in fees (using {DEFAULT_FEE_RATE} as a fallback)")
+            return DEFAULT_FEE_RATE
 
         return float(fees['taker_fee_rate'].to_string(index=False).strip())
 
