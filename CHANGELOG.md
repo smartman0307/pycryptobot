@@ -10,9 +10,13 @@ Upgrade library dependancies (if required):
 
 ## [3.2.12] - 2021-08-23
 
+### Added
+
+-- Verbose debug option to isSellTrigger and isWaitTrigger
+
 ### Changed
 
--- Binance US is missing 'tradeFee' API endpoint, now returns default fee for this url
+-- Logic in isSellTrigger and isWaitTrigger
 
 ## [3.2.11] - 2021-08-22
 
