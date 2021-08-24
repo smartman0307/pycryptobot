@@ -12,8 +12,7 @@ Upgrade library dependancies (if required):
 
 ### Changed
 
--- Found and fixed 'currency' key exception
--- Fixed simulation summary
+-- add proper shebang and exec permissions to pycryptobot.py (run from CLI, etc.)
 
 ## [3.2.13] - 2021-08-23
 

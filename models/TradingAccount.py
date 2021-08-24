@@ -163,10 +163,6 @@ class TradingAccount:
                         # retrieve all balances
                         return df
                     else:
-                        # return nil if dataframe is empty
-                        if len(df) == 0:
-                            return 0.0
-
                         # retrieve balance of specified currency
                         df_filtered = df[df["currency"] == currency]["available"]
                         if len(df_filtered) == 0:
@@ -266,11 +262,6 @@ class TradingAccount:
                     ]
                 else:
                     df = model.getAccounts()
-
-                    # return nil if dataframe is empty
-                    if len(df) == 0:
-                        return 0.0
-
                     # retrieve balance of specified currency
                     df_filtered = df[df["currency"] == currency]["available"]
                     if len(df_filtered) == 0:
