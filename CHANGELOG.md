@@ -5,26 +5,8 @@ Upgrade version:
 - git checkout main
 - git pull
 
-Upgrade library dependencies (if required):
+Upgrade library dependancies (if required):
 - python3 -m pip install -r requirements.txt -U
-
-## [3.3.3] - 2021-08-31
-
-### Changed
-
--- fix for profit and loss summary for simulations
--- added trade history in simulation summary in verbose mode will also export to CSV '({market}{daterange}_trades.csv)'
--- added trade history export to csv 'trades.csv' 
-
-## [3.3.2] - 2021-08-30
-
-### Changed
-
--- update to smartswitch sim processing speed.
--- update to sim summary to include total margin and profit/loss.
--- fixed timestamp bug when using simstartdate.
--- fixed graphs in sim mode.
--- remove limit for sims using specific granularity.
 
 ## [3.3.1] - 2021-08-29
 

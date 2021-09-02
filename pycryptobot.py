@@ -68,11 +68,7 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
     # analyse the market data
     if app.isSimulation() and len(trading_data.columns) > 8:
         df = trading_data
-        if app.appStarted and app.simstartdate is not None:
-            # On first run set the iteration to the start date entered
-            # This sim mode now pulls 300 candles from before the entered start date 
-            state.iterations = df.index.get_loc(str(app.getDateFromISO8601Str(app.simstartdate))) + 1
-            app.appStarted = False
+
         # if smartswitch then get the market data using new granularity
         if app.sim_smartswitch:
             df_last = app.getInterval(df, state.iterations)
@@ -92,7 +88,7 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
 
                 simDate = app.getDateFromISO8601Str(str(df_last.index.format()[0]))
 
-                trading_data = app.getSmartSwitchHistoricalDataChained(app.getMarket(), app.getGranularity(), str(startDate), str(endDate))
+                trading_data = app.getSmartSwitchHistoricalDataChained(app.getMarket(), app.getGranularity(), str(startDate), str(endDate), str(simDate))
 
                 if app.getGranularity() == 3600:
                     simDate = app.getDateFromISO8601Str(str(simDate))
@@ -115,8 +111,8 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                 trading_dataCopy = trading_data.copy()
                 technical_analysis = TechnicalAnalysis(trading_dataCopy)
 
-                #if 'morning_star' not in df:
-                technical_analysis.addAll()
+                if 'morning_star' not in df:
+                    technical_analysis.addAll()
 
                 df = technical_analysis.getDataFrame()
 
@@ -137,12 +133,6 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
         technical_analysis = TechnicalAnalysis(trading_dataCopy)
         technical_analysis.addAll()
         df = technical_analysis.getDataFrame()
-
-        if app.isSimulation() and app.appStarted and app.simstartdate is not None:
-            # On first run set the iteration to the start date entered
-            # This sim mode now pulls 300 candles from before the entered start date 
-            state.iterations = df.index.get_loc(str(app.getDateFromISO8601Str(app.simstartdate))) + 1
-            app.appStarted = False
 
     if app.isSimulation():
         df_last = app.getInterval(df, state.iterations)
@@ -260,12 +250,6 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
 
         immediate_action = False
         margin, profit, sell_fee = 0, 0, 0
-
-        # Reset the TA so that the last record is the current sim date 
-        # To allow for calculations to be done on the sim date being processed
-        if app.isSimulation():
-            trading_dataCopy = trading_data[trading_data['date'] <= current_sim_date].tail(300).copy()
-            technical_analysis = TechnicalAnalysis(trading_dataCopy)
 
         if state.last_buy_size > 0 and state.last_buy_price > 0 and price > 0 and state.last_action == 'BUY':
             # update last buy high
@@ -477,41 +461,19 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
 
             if not app.isVerbose():
                 if state.last_action != '':
-                    # Not sure if this if is needed just preserving any exisitng functionality that may have been missed
-                    # Updated to show over margin and profit
-                    if not app.isSimulation:
-                        output_text = formatted_current_df_index + ' | ' + app.getMarket() + bullbeartext + ' | ' + \
+                    output_text = formatted_current_df_index + ' | ' + app.getMarket() + bullbeartext + ' | ' + \
                                   app.printGranularity() + ' | ' + price_text + ' | ' + ema_co_prefix + \
                                   ema_text + ema_co_suffix + macd_co_prefix + macd_text + macd_co_suffix + \
                                   obv_prefix + obv_text + obv_suffix + state.eri_text + state.action + \
                                   ' | Last Action: ' + state.last_action + ' | DF HIGH: ' + str(df['close'].max()) + ' | ' + 'DF LOW: ' + str(df['close'].min()) + ' | SWING: ' +str(round(((df['close'].max()-df['close'].min()) / df['close'].min())*100, 2)) + '% |' + \
                                   ' CURR Price is ' + str(round(((price-df['close'].max()) / df['close'].max())*100, 2)) + '% ' + 'away from DF HIGH | Range: ' + str(df.iloc[0, 0]) + ' <--> ' + str(df.iloc[len(df)-1, 0])
-                    else:
-                        df_high = df[df['date'] <= current_sim_date]['close'].max()
-                        df_low = df[df['date'] <= current_sim_date]['close'].min()
-                        #print(df_high)
-                        output_text = formatted_current_df_index + ' | ' + app.getMarket() + bullbeartext + ' | ' + \
-                                  app.printGranularity() + ' | ' + price_text + ' | ' + ema_co_prefix + \
-                                  ema_text + ema_co_suffix + macd_co_prefix + macd_text + macd_co_suffix + \
-                                  obv_prefix + obv_text + obv_suffix + state.eri_text + state.action + \
-                                  ' | Last Action: ' + state.last_action + ' | DF HIGH: ' + str(df_high) + ' | ' + 'DF LOW: ' + str(df_low) + ' | SWING: ' +str(round(((df_high-df_low) / df_low)*100, 2)) + '% |' + \
-                                  ' CURR Price is ' + str(round(((price-df_high) / df_high)*100, 2)) + '% ' + 'away from DF HIGH | Range: ' + str(df.iloc[state.iterations-300, 0]) + ' <--> ' + str(df.iloc[state.iterations-1, 0])
                 else:
-                    if not app.isSimulation:
-                        output_text = formatted_current_df_index + ' | ' + app.getMarket() + bullbeartext + ' | ' + \
+                    output_text = formatted_current_df_index + ' | ' + app.getMarket() + bullbeartext + ' | ' + \
                                   app.printGranularity() + ' | ' + price_text + ' | ' + ema_co_prefix + \
                                   ema_text + ema_co_suffix + macd_co_prefix + macd_text + macd_co_suffix + \
                                   obv_prefix + obv_text + obv_suffix + state.eri_text + state.action + ' | DF HIGH: ' + str(df['close'].max()) + ' | ' + 'DF LOW: ' + str(df['close'].min()) + ' | SWING: ' +str(round(((df['close'].max()-df['close'].min()) / df['close'].min())*100, 2)) + '%' + \
                                   ' CURR Price is ' + str(round(((price-df['close'].max()) / df['close'].max())*100, 2)) + '% ' + 'away from DF HIGH | Range: ' +str(df.iloc[0, 0]) + ' <--> ' +str(df.iloc[len(df)-1, 0])
-                    else:
-                        df_high = df[df['date'] <= current_sim_date]['close'].max()
-                        df_low = df[df['date'] <= current_sim_date]['close'].min()
 
-                        output_text = formatted_current_df_index + ' | ' + app.getMarket() + bullbeartext + ' | ' + \
-                                  app.printGranularity() + ' | ' + price_text + ' | ' + ema_co_prefix + \
-                                  ema_text + ema_co_suffix + macd_co_prefix + macd_text + macd_co_suffix + \
-                                  obv_prefix + obv_text + obv_suffix + state.eri_text + state.action + ' | DF HIGH: ' + str(df_high) + ' | ' + 'DF LOW: ' + str(df_low) + ' | SWING: ' +str(round(((df_high-df_low) / df_low)*100, 2)) + '%' + \
-                                  ' CURR Price is ' + str(round(((price-df_high) / df_high)*100, 2)) + '% ' + 'away from DF HIGH | Range: ' +str(df.iloc[state.iterations-300, 0]) + ' <--> ' + str(df.iloc[state.iterations-1, 0])
                 if state.last_action == 'BUY':
                     if state.last_buy_size > 0:
                         margin_text = truncate(margin) + '%'
@@ -648,13 +610,8 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                 else:
                     app.notifyTelegram(app.getMarket() + ' (' + app.printGranularity() + ') TEST BUY at ' + price_text)
                     if state.last_buy_size == 0 and state.last_buy_filled == 0:
-                        # Sim mode can now use buymaxsize as the amount used for a buy
-                        if app.getBuyMaxSize() != None:
-                            state.last_buy_size = app.getBuyMaxSize()
-                            state.first_buy_size = app.getBuyMaxSize()
-                        else:
-                            state.last_buy_size = 1000
-                            state.first_buy_size = 1000
+                        state.last_buy_size = 1000
+                        state.first_buy_size = 1000
 
                     state.buy_count = state.buy_count + 1
                     state.buy_sum = state.buy_sum + state.last_buy_size
@@ -662,8 +619,14 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                     if not app.isVerbose():
                         Logger.info(formatted_current_df_index + ' | ' + app.getMarket() + ' | ' + app.printGranularity() + ' | ' + price_text + ' | BUY')
 
-                        bands = technical_analysis.getFibonacciRetracementLevels(float(price))
-                        technical_analysis.printSupportResistanceLevel(float(price))
+                        if app.getSmartSwitch():
+                            trading_dataCopy = trading_data[trading_data['date'] <= current_sim_date].copy()
+                            ta = TechnicalAnalysis(trading_dataCopy)
+                            bands = ta.getFibonacciRetracementLevels(float(price))
+                            ta.printSupportResistanceLevel(float(price))
+                        else:
+                            bands = technical_analysis.getFibonacciRetracementLevels(float(price))
+                            technical_analysis.printSupportResistanceLevel(float(price))
 
                         Logger.info(' Fibonacci Retracement Levels:' + str(bands))
 
@@ -690,28 +653,11 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                         textBox.center('*** Executing TEST Buy Order ***')
                         textBox.singleLine()
 
-                    app.trade_tracker = app.trade_tracker.append(
-                        {
-                            "Datetime": str(current_sim_date),
-                            "Market": app.getMarket(),
-                            "Action": "BUY",
-                            "Price": price,
-                            "Quote": state.last_buy_size,
-                            "Base": float(state.last_buy_size) / float(price),
-                            "DF_High": df[df['date'] <= current_sim_date]['close'].max(),
-                            "DF_Low": df[df['date'] <= current_sim_date]['close'].min()}
-                            , ignore_index=True
-                                )
-
                 if app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(technical_analysis)
                     ts = datetime.now().timestamp()
                     filename = app.getMarket() + '_' + app.printGranularity() + '_buy_' + str(ts) + '.png'
-                    # This allows graphs to be used in sim mode using the correct DF
-                    if app.isSimulation:
-                        tradinggraphs.renderEMAandMACD(len(trading_dataCopy), 'graphs/' + filename, True)
-                    else:
-                        tradinggraphs.renderEMAandMACD(len(trading_data), 'graphs/' + filename, True)
+                    tradinggraphs.renderEMAandMACD(len(trading_data), 'graphs/' + filename, True)
 
             # if a sell signal
             elif state.action == 'SELL':
@@ -788,12 +734,6 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                     state.last_sell_size = sell_size - sell_fee
                     state.sell_sum = state.sell_sum + state.last_sell_size
 
-                    # Added to track profit and loss margins during sim runs
-                    state.margintracker += float(margin)
-                    state.profitlosstracker += float(profit)
-                    state.feetracker += float(sell_fee)
-                    state.buy_tracker += float(state.last_sell_size)
-
                     if not app.isVerbose():
                         if price > 0:
                             margin_text = truncate(margin) + '%'
@@ -811,30 +751,11 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                         textBox.center('*** Executing TEST Sell Order ***')
                         textBox.singleLine()
 
-                    app.trade_tracker = app.trade_tracker.append(
-                        {
-                            "Datetime": str(current_sim_date),
-                            "Market": app.getMarket(),
-                            "Action": "SELL",
-                            "Price": price,
-                            "Quote": state.last_sell_size,
-                            "Base": state.last_buy_filled,
-                            "Margin": margin,
-                            "Profit": profit,
-                            "Fee": sell_fee,
-                            "DF_High": df[df['date'] <= current_sim_date]['close'].max(),
-                            "DF_Low": df[df['date'] <= current_sim_date]['close'].min()}
-                            , ignore_index=True
-                        )
                 if app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(technical_analysis)
                     ts = datetime.now().timestamp()
                     filename = app.getMarket() + '_' + app.printGranularity() + '_sell_' + str(ts) + '.png'
-                    # This allows graphs to be used in sim mode using the correct DF
-                    if app.isSimulation():
-                        tradinggraphs.renderEMAandMACD(len(trading_dataCopy), 'graphs/' + filename, True)
-                    else:
-                        tradinggraphs.renderEMAandMACD(len(trading_data), 'graphs/' + filename, True)
+                    tradinggraphs.renderEMAandMACD(len(trading_data), 'graphs/' + filename, True)
 
             # last significant action
             if state.action in ['BUY', 'SELL']:
@@ -844,21 +765,6 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
 
             if not app.isLive() and state.iterations == len(df):
                 Logger.info("\nSimulation Summary: ")
-
-                if app.isVerbose():
-                    Logger.info("\n" + str(app.trade_tracker))
-                    if app.simuluationSpeed() == "fast":
-                        start = str(df.head(1).index.format()[0]).replace(":", ".")
-                        end = str(df.tail(1).index.format()[0]).replace(":", ".")
-                        filename = f"{app.getMarket()} {str(start)} - {str(end)}_trades.csv"
-                    else:
-                        filename = f"{app.getMarket()} {str(app.simstartdate)} - {str(app.simenddate)}_trades.csv"
-                else:
-                    filename = "trades.csv"
-                try:
-                    app.trade_tracker.to_csv(filename)
-                except OSError:
-                    Logger.critical(f"Unable to save: {filename}")
 
                 if state.buy_count == 0:
                     state.last_buy_size = 0
@@ -888,7 +794,7 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                 Logger.info('   First Buy : ' + str(state.first_buy_size))
 
                 if state.sell_count > 0:
-                    Logger.info('   Last Sell : ' + _truncate(state.last_sell_size, 2) + "\n")
+                    Logger.info('   Last Sell : ' + str(state.last_sell_size) + "\n")
                 else:
                     Logger.info("\n")
                     Logger.info('      Margin : 0.00%')
@@ -899,15 +805,13 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
                 app.notifyTelegram(f"Simulation Summary\n   Buy Count: {state.buy_count}\n   Sell Count: {state.sell_count}\n   First Buy: {state.first_buy_size}\n   Last Buy: {state.last_buy_size}\n")
 
                 if state.sell_count > 0:
-                    Logger.info('   Last Trade Margin : ' + _truncate((((state.last_sell_size - state.first_buy_size) / state.first_buy_size) * 100), 4) + '%')
+                    Logger.info('      Margin : ' + _truncate((((state.last_sell_size - state.first_buy_size) / state.first_buy_size) * 100), 4) + '%')
                     Logger.info("\n")
-                    Logger.info('   All Trades Buys (' + app.quote_currency + '): ' + _truncate(state.buy_tracker, 2))
-                    Logger.info('   All Trades Profit/Loss (' + app.quote_currency + '): ' + _truncate(state.profitlosstracker, 2) + " (" + _truncate(state.feetracker,2) + " in fees)")
-                    Logger.info('   All Trades Margin : ' + _truncate(state.margintracker, 4) + '%')
-                    Logger.info("\n")
+
                     Logger.info("  ** non-live simulation, assuming highest fees")
                     Logger.info("  ** open trade excluded from margin calculation\n")
                     app.notifyTelegram(f"      Margin: {_truncate((((state.last_sell_size - state.first_buy_size) / state.first_buy_size) * 100), 4)}%\n  ** non-live simulation, assuming highest fees\n  ** open trade excluded from margin calculation\n")
+
         else:
             if state.last_buy_size > 0 and state.last_buy_price > 0 and price > 0 and state.last_action == 'BUY':
                 # show profit and margin if already bought
