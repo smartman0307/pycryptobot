@@ -793,7 +793,7 @@ class AuthAPI(AuthAPIBase):
             if self.die_on_api_error:
                 raise SystemExit(err)
             else:
-                Logger.debug(err)
+                Logger.error(err)
                 return {}
         else:
             if self.die_on_api_error:
@@ -1053,7 +1053,7 @@ class PublicAPI(AuthAPIBase):
             if self.die_on_api_error:
                 raise SystemExit(err)
             else:
-                Logger.debug(err)
+                Logger.error(err)
                 return {}
         else:
             if self.die_on_api_error:
