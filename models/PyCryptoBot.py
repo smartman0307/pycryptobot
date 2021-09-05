@@ -244,7 +244,7 @@ class PyCryptoBot(BotConfig):
                     textBox.center("*** Getting (" + str(granularity) + ") market data ***")
 
                 df_first = simend
-                df_first -= timedelta(minutes=(200 * (granularity / 60)))
+                df_first -= timedelta(minutes=(300 * (granularity / 60)))
                 df1 = self.getHistoricalData(
                     market,
                     granularity,
@@ -948,21 +948,10 @@ class PyCryptoBot(BotConfig):
                     textBox.doubleLine()
 
             else:
-                tradingData = pd.DataFrame()
 
-                startDate = self.getDateFromISO8601Str(str(datetime.now()))
-                endDate = startDate
-                startDate = pd.Series(startDate).dt.round(freq = 'H')[0]
-                endDate = pd.Series(endDate).dt.round(freq = 'H')[0]
-                startDate -= timedelta(minutes=(self.getGranularity() / 60) * 300)
-
-                tradingData = self.getSmartSwitchDataFrame(tradingData,
-                    self.getMarket(), self.getGranularity(), self.getDateFromISO8601Str(str(startDate)).isoformat(), endDate.isoformat())
-                if self.extraCandlesFound:
-                    self.simstartdate = str(pd.Series(startDate).dt.round(freq = 'H')[0])
-                    self.simenddate = str(pd.Series(endDate).dt.round(freq = 'H')[0])
-
-                self.extraCandlesFound = True
+                tradingData = self.getHistoricalData(
+                    self.getMarket(), self.getGranularity()
+                )
 
             return tradingData
 
