@@ -256,10 +256,7 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
         two_black_gapping = bool(df_last['two_black_gapping'].values[0])
 
         if app.isSimulation():
-            # Reset the Strategy so that the last record is the current sim date 
-            # To allow for calculations to be done on the sim date being processed
-            sdf = df[df["date"] <= current_sim_date].tail(300)
-            strategy = Strategy(app, state, sdf, sdf.index.get_loc(str(current_sim_date) ) + 1)
+            strategy = Strategy(app, state, df[df["date"] <= current_sim_date].tail(300), 299)
         else:
             strategy = Strategy(app, state, df, state.iterations)
 
@@ -855,18 +852,18 @@ def executeJob(sc=None, app: PyCryptoBot=None, state: AppState=None, trading_dat
 
                 if app.isVerbose():
                     Logger.info("\n" + str(app.trade_tracker))
-                    start = str(df.head(1).index.format()[0]).replace(":", ".")
-                    end = str(df.tail(1).index.format()[0]).replace(":", ".")
-                    filename = f"{app.getMarket()} {str(start)} - {str(end)}_{tradesfile}"
-
+                    if app.simuluationSpeed() == "fast":
+                        start = str(df.head(1).index.format()[0]).replace(":", ".")
+                        end = str(df.tail(1).index.format()[0]).replace(":", ".")
+                        filename = f"{app.getMarket()} {str(start)} - {str(end)}_{tradesfile}"
+                    else:
+                        filename = f"{app.getMarket()} {str(app.simstartdate)} - {str(app.simenddate)}_{tradesfile}"
                 else:
                     filename = tradesfile
                 try:
-                    if os.path.exists("csv"):
-                        os.makedirs("csv")
-                    app.trade_tracker.to_csv("./csv/" + filename)
+                    app.trade_tracker.to_csv(filename)
                 except OSError:
-                    Logger.critical(f"Unable to save: /csv/{filename}")
+                    Logger.critical(f"Unable to save: {filename}")
 
                 if state.buy_count == 0:
                     state.last_buy_size = 0
@@ -1012,4 +1009,9 @@ def main():
         raise
 
 
-main()
+if __name__ == '__main__':
+    if sys.version_info < (3, 6, 0):
+        sys.stderr.write("You need python 3.6 or higher to run this script\n")
+        exit(1)
+
+    main()
