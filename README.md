@@ -1,6 +1,6 @@
 [![Docker](https://github.com/whittlem/pycryptobot/actions/workflows/container.yml/badge.svg)](https://github.com/whittlem/pycryptobot/actions/workflows/container.yml/badge.svg) [![Tests](https://github.com/whittlem/pycryptobot/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/whittlem/pycryptobot/actions/workflows/unit-tests.yml/badge.svg)
 
-# Python Crypto Bot v3.6.1 (pycryptobot)
+# Python Crypto Bot v3.6.0 (pycryptobot)
 
 ## Join our chat on Telegram
 
@@ -386,6 +386,12 @@ In order to trade live you need to authenticate with the Coinbase Pro or Binance
     --simenddate                               End date for sample simulation or 'now'
 
 `simstartdate` takes priority over `simenddate` if both are given
+
+### Simulation trades.csv
+
+By default, when running a simulation, if there are any orders,  a file called `trades.csv` with all BUYS and SELLS will be created.
+
+With `--tradesfile` you can control the name and where file is stored, eg `--tradesfile BTSUDC-trades.csv`  
 
 ## API key / secret / password storage
 

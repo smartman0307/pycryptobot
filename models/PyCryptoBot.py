@@ -82,6 +82,9 @@ class PyCryptoBot(BotConfig):
     def getLogFile(self):
         return self.logfile
 
+    def getTradesFile(self):
+        return self.tradesfile
+
     def getExchange(self):
         return self.exchange
 
@@ -132,7 +135,7 @@ class PyCryptoBot(BotConfig):
             return str(self.granularity)
         if self.exchange == "dummy":
             return str(self.granularity)
-        raise TypeError(f'Unknown exchange "{self.exchange}"')
+        raise TypeError('Unknown exchange "' + self.exchange + '"')
 
     def getBuyPercent(self):
         try:
@@ -239,9 +242,9 @@ class PyCryptoBot(BotConfig):
                 textBox = TextBox(80, 26)
                 textBox.singleLine()
                 if self.smart_switch:
-                    textBox.center(f"*** Getting smartswitch ({str(granularity)}) market data ***")
+                    textBox.center("*** Getting smartswitch (" + str(granularity) + ") market data ***")
                 else:
-                    textBox.center(f"*** Getting ({str(granularity)}) market data ***")
+                    textBox.center("*** Getting (" + str(granularity) + ") market data ***")
 
                 df_first = simend
                 df_first -= timedelta(minutes=(200 * (granularity / 60)))
@@ -280,7 +283,7 @@ class PyCryptoBot(BotConfig):
                         [df2.copy(), df1.copy()]
                         ).drop_duplicates()
                         df1 = result_df_cache
-
+                    
                     #create df with 300 candles before the required startdate to match live
                     if df_first.isoformat(timespec="milliseconds") == simstart.isoformat(timespec="milliseconds"):
                         if addingExtraCandles == False:
@@ -298,8 +301,8 @@ class PyCryptoBot(BotConfig):
                 if self.extraCandlesFound == False:
                     textBox = TextBox(80, 26)
                     textBox.singleLine()
-                    textBox.center(f"{str(self.exchange)} is not returning data for the requested start date.")
-                    textBox.center(f"Switching to earliest start date: {str(result_df_cache.head(1).index.format()[0])}")
+                    textBox.center(str(self.exchange) + " is not returning data for the requested start date.")
+                    textBox.center("Switching to earliest start date: " + str(result_df_cache.head(1).index.format()[0]))
                     textBox.singleLine()
                     self.simstartdate = str(result_df_cache.head(1).index.format()[0])
 
@@ -328,18 +331,18 @@ class PyCryptoBot(BotConfig):
                     if self.getDateFromISO8601Str(str(self.ema1226_15m_cache.index.format()[0])).isoformat() != self.getDateFromISO8601Str(start).isoformat():
                         textBox = TextBox(80, 26)
                         textBox.singleLine()
-                        textBox.center(f"{str(self.exchange)}is not returning data for the requested start date.")
-                        textBox.center(f"Switching to earliest start date: {str(self.ema1226_15m_cache.head(1).index.format()[0])}")
+                        textBox.center(str(self.exchange) + " is not returning data for the requested start date.")
+                        textBox.center("Switching to earliest start date: " + str(self.ema1226_15m_cache.head(1).index.format()[0]))
                         textBox.singleLine()
                         self.simstartdate = str(self.ema1226_15m_cache.head(1).index.format()[0])
                 else:
                     if self.getDateFromISO8601Str(str(self.ema1226_1h_cache.index.format()[0])).isoformat() != self.getDateFromISO8601Str(start).isoformat():
                         textBox = TextBox(80, 26)
                         textBox.singleLine()
-                        textBox.center(f"{str(self.exchange)} is not returning data for the requested start date.")
-                        textBox.center(f"Switching to earliest start date: {str(self.ema1226_1h_cache.head(1).index.format()[0])}")
+                        textBox.center(str(self.exchange) + " is not returning data for the requested start date.")
+                        textBox.center("Switching to earliest start date: " + str(self.ema1226_1h_cache.head(1).index.format()[0]))
                         textBox.singleLine()
-                        self.simstartdate = str(self.ema1226_1h_cache.head(1).index.format()[0])
+                        self.simstartdate = str(self.ema1226_1h_cache.head(1).index.format()[0])                    
 
             if granularity == 900:
                 return self.ema1226_15m_cache
@@ -632,19 +635,37 @@ class PyCryptoBot(BotConfig):
     def compare(self, val1, val2, label="", precision=2):
         if val1 > val2:
             if label == "":
-                return f"{truncate(val1, precision)} > {truncate(val2, precision)}"
+                return truncate(val1, precision) + " > " + truncate(val2, precision)
             else:
-                return f"{label}: {truncate(val1, precision)} > {truncate(val2, precision)}"
+                return (
+                    label
+                    + ": "
+                    + truncate(val1, precision)
+                    + " > "
+                    + truncate(val2, precision)
+                )
         if val1 < val2:
             if label == "":
-                return f"{truncate(val1, precision)} < {truncate(val2, precision)}"
+                return truncate(val1, precision) + " < " + truncate(val2, precision)
             else:
-                return f"{label}: {truncate(val1, precision)} < {truncate(val2, precision)}"
+                return (
+                    label
+                    + ": "
+                    + truncate(val1, precision)
+                    + " < "
+                    + truncate(val2, precision)
+                )
         else:
             if label == "":
-                return f"{truncate(val1, precision)} = {truncate(val2, precision)}"
+                return truncate(val1, precision) + " = " + truncate(val2, precision)
             else:
-                return f"{label}: {truncate(val1, precision)} = {truncate(val2, precision)}"
+                return (
+                    label
+                    + ": "
+                    + truncate(val1, precision)
+                    + " = "
+                    + truncate(val2, precision)
+                )
 
     def getLastBuy(self) -> dict:
         """Retrieves the last exchange buy order and returns a dictionary"""
@@ -895,10 +916,10 @@ class PyCryptoBot(BotConfig):
 
                     else:
                         tradingData = self.getSmartSwitchDataFrame(
-                            tradingData,
-                            self.market,
-                            self.getGranularity(),
-                            startDate.isoformat(),
+                            tradingData, 
+                            self.market, 
+                            self.getGranularity(), 
+                            startDate.isoformat(), 
                             endDate.isoformat())
 
                     attempts += 1
