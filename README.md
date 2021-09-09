@@ -387,12 +387,6 @@ In order to trade live you need to authenticate with the Coinbase Pro or Binance
 
 `simstartdate` takes priority over `simenddate` if both are given
 
-### Simulation trades.csv
-
-By default, when running a simulation, if there are any orders,  a file called `trades.csv` with all BUYS and SELLS will be created.
-
-With `--tradesfile` you can control the name and where file is stored, eg `--tradesfile BTSUDC-trades.csv`  
-
 ## API key / secret / password storage
 
 From now on it's recommended NOT to store the credentials in the config file because people share configs and may inadvertently share their API keys within.
@@ -418,7 +412,7 @@ Coinbase Pro basic (using smart switching)
 
     {
         "api_url" : "https://api.pro.coinbase.com",
-        "api_key_file" : "coinbase.key"
+        "api_key_file" : "coinbase.key",
         "config" : {
             "cryptoMarket" : "BTC",
             "fiatMarket" : "GBP",
@@ -431,7 +425,7 @@ Coinbase Pro basic (specific granularity, no smart switching)
 
     {
         "api_url" : "https://api.pro.coinbase.com",
-        "api_key_file" : "coinbase.key"
+        "api_key_file" : "coinbase.key",
         "config" : {
             "cryptoMarket" : "BCH",
             "fiatMarket" : "GBP",
@@ -446,7 +440,7 @@ Coinbase Pro only (new format)
     {
         "coinbasepro" : {
             "api_url" : "https://api.pro.coinbase.com",
-            "api_key_file" : "coinbase.key"
+            "api_key_file" : "coinbase.key",
             "config" : {
                 "base_currency" : "BTC",
                 "quote_currency" : "GBP",
@@ -462,7 +456,7 @@ Binance only (new format)
     {
         "binance" : {
             "api_url" : "https://api.binance.com",
-            "api_key_file" : "binance.key"
+            "api_key_file" : "binance.key",
             "config" : {
                 "base_currency" : "BTC",
                 "quote_currency" : "ZAR",
@@ -478,7 +472,7 @@ Coinbase Pro and Binance (new format)
     {
         "binance" : {
             "api_url" : "https://api.binance.com",
-            "api_key_file" : "binance.key"
+            "api_key_file" : "binance.key",
             "config" : {
                 "base_currency" : "BTC",
                 "quote_currency" : "ZAR",
@@ -489,7 +483,7 @@ Coinbase Pro and Binance (new format)
         },
         "coinbasepro" : {
             "api_url" : "https://api.pro.coinbase.com",
-            "api_key_file" : "coinbase.key"
+            "api_key_file" : "coinbase.key",
             "config" : {
                 "base_currency" : "BTC",
                 "quote_currency" : "GBP",
