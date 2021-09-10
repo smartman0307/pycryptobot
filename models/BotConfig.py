@@ -96,6 +96,10 @@ class BotConfig:
 
         self.config_file = kwargs.get("config_file", "config.json")
 
+        self.tradesfile = (
+            self.cli_args["tradesfile"] if self.cli_args["tradesfile"] else "trades.csv"
+        )
+
         self.config_provided = False
         self.config = {}
 
@@ -116,7 +120,7 @@ class BotConfig:
                             self.config = json.load(stream)
                         except json.decoder.JSONDecodeError as err:
                             sys.tracebacklimit = 0
-                            raise ValueError("Invalid config.json: " + str(err))
+                            raise ValueError(f"Invalid config.json: {str(err)}")
 
             except (ScannerError, ConstructorError) as err:
                 sys.tracebacklimit = 0
@@ -130,7 +134,7 @@ class BotConfig:
 
             except ValueError as err:
                 sys.tracebacklimit = 0
-                raise ValueError("Invalid config: " + str(err))
+                raise ValueError(f"Invalid config: {str(err)}")
 
             except:
                 raise
@@ -365,6 +369,11 @@ class BotConfig:
             "--logfile",
             type=str,
             help="Use the log file at the given location. e.g 'mymarket.log'",
+        )
+        parser.add_argument(
+            "--tradesfile",
+            type=str,
+            help="Path to file to log trades done during simulation. eg './trades/BTCBUSD-trades.csv",
         )
         parser.add_argument(
             "--buypercent", type=int, help="percentage of quote currency to buy"
