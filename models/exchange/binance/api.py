@@ -17,8 +17,6 @@ from requests.auth import AuthBase
 from requests import Request, Session
 from models.helper.LogHelper import Logger
 from urllib.parse import urlencode
-from threading import Thread
-from websocket import create_connection, WebSocketConnectionClosedException
 
 DEFAULT_MAKER_FEE_RATE = 0.0015  # added 0.0005 to allow for price movements
 DEFAULT_TAKER_FEE_RATE = 0.0015  # added 0.0005 to allow for price movements
@@ -411,7 +409,7 @@ class AuthAPI(AuthAPIBase):
 
                 if full_scan is True:
                     print(
-                        f"add to order history to prevent full scan: {self.order_history}"
+                        "add to order history to prevent full scan:", self.order_history
                     )
             else:
                 # GET /api/v3/allOrders
@@ -650,7 +648,7 @@ class AuthAPI(AuthAPIBase):
             return resp
         except Exception as err:
             ts = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-            Logger.error(f"{ts} Binance  marketBuy {str(err)}")
+            Logger.error(ts + " Binance " + " marketBuy " + str(err))
             return []
 
     def marketSell(
@@ -698,7 +696,7 @@ class AuthAPI(AuthAPIBase):
             return resp
         except Exception as err:
             ts = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-            Logger.error(f"{ts} Binance  marketSell {str(err)}")
+            Logger.error(ts + " Binance " + " marketSell " + str(err))
             return []
 
     def authAPI(self, method: str, uri: str, payload: str = {}) -> dict:
@@ -1063,243 +1061,3 @@ class PublicAPI(AuthAPIBase):
             else:
                 Logger.info(f"{reason}: {self._api_url}")
                 return {}
-
-
-class WebSocket(AuthAPIBase):
-    def __init__(
-        self,
-        markets=None,
-        api_url="https://api.binance.com",
-        ws_url: str = "wss://stream.binance.com:9443",
-    ) -> None:
-        # options
-        self.debug = False
-
-        valid_urls = [
-            "https://api.binance.com",
-            "https://api.binance.us",
-            "https://testnet.binance.vision",
-        ]
-
-        # validate Binance API
-        if api_url not in valid_urls:
-            raise ValueError("Binance API URL is invalid")
-
-        if api_url[-1] != "/":
-            api_url = api_url + "/"
-
-        valid_ws_urls = [
-            "wss://stream.binance.com:9443",
-            "wss://stream.binance.com:9443/",
-        ]
-
-        # validate Binance Websocket URL
-        if ws_url not in valid_ws_urls:
-            raise ValueError("Binance WebSocket URL is invalid")
-
-        if ws_url[-1] != "/":
-            ws_url = ws_url + "/"
-
-        self._ws_url = ws_url
-        self._api_url = api_url
-
-        self.markets = None
-        self.type = "SUBSCRIBE"
-        self.stop = True
-        self.error = None
-        self.ws = None
-        self.thread = None
-
-    def start(self):
-        def _go():
-            self._connect()
-            self._listen()
-            self._disconnect()
-
-        self.stop = False
-        self.on_open()
-        self.thread = Thread(target=_go)
-        self.keepalive = Thread(target=self._keepalive)
-        self.thread.start()
-
-    def _connect(self):
-        if self.markets is None:
-            print("Error: no market specified!")
-            sys.exit()
-        elif not isinstance(self.markets, list):
-            self.markets = [self.markets]
-
-        params = []
-        for market in self.markets:
-            params.append(f"{market.lower()}@miniTicker")
-            params.append(f"{market.lower()}@kline_1m")
-            params.append(f"{market.lower()}@kline_5m")
-            params.append(f"{market.lower()}@kline_15m")
-            params.append(f"{market.lower()}@kline_1h")
-            params.append(f"{market.lower()}@kline_6h")
-            params.append(f"{market.lower()}@kline_1d")
-
-        self.ws = create_connection('wss://stream.binance.com:9443/ws')
-        self.ws.send(
-            json.dumps(
-                {
-                    "method": "SUBSCRIBE",
-                    "params": params,
-                    "id": 1,
-                }
-            )
-        )
-
-    def _keepalive(self, interval=30):
-        while self.ws.connected:
-            self.ws.ping("keepalive")
-            time.sleep(interval)
-
-    def _listen(self):
-        self.keepalive.start()
-        while not self.stop:
-            try:
-                data = self.ws.recv()
-                if data != "":
-                    msg = json.loads(data)
-                else:
-                    msg = {}
-            except ValueError as e:
-                self.on_error(e)
-            except Exception as e:
-                self.on_error(e)
-            else:
-                self.on_message(msg)
-
-    def _disconnect(self):
-        try:
-            if self.ws:
-                self.ws.close()
-        except WebSocketConnectionClosedException:
-            pass
-        finally:
-            self.keepalive.join()
-
-    def close(self):
-        self.stop = True
-        self._disconnect()
-        self.thread.join()
-
-    def on_open(self):
-        print("-- Subscribed! --\n")
-
-    def on_close(self):
-        print("\n-- Socket Closed --")
-
-    def on_message(self, msg):
-        print(msg)
-
-    def on_error(self, e, data=None):
-        print("Error", e)
-        self.stop = True
-        print("{} - data: {}".format(e, data))
-
-
-class WebSocketClient(WebSocket, AuthAPIBase):
-    def __init__(
-        self,
-        markets: list = [],
-        api_url="https://api.binance.com",
-        ws_url: str = "wss://stream.binance.com:9443",
-    ) -> None:
-        if len(markets) == 0:
-            raise ValueError("A list of one or more markets is required.")
-
-        for market in markets:
-            # validates the market is syntactically correct
-            if not self._isMarketValid(market):
-                raise ValueError("Binance market is invalid.")
-
-        valid_urls = [
-            "https://api.binance.com",
-            "https://api.binance.us",
-            "https://testnet.binance.vision",
-        ]
-
-        # validate Binance API
-        if api_url not in valid_urls:
-            raise ValueError("Binance API URL is invalid")
-
-        if api_url[-1] != "/":
-            api_url = api_url + "/"
-
-        valid_ws_urls = [
-            "wss://stream.binance.com:9443",
-            "wss://stream.binance.com:9443/",
-        ]
-
-        # validate Binance Websocket URL
-        if ws_url not in valid_ws_urls:
-            raise ValueError("Binance WebSocket URL is invalid")
-
-        if ws_url[-1] != "/":
-            ws_url = ws_url + "/"
-
-        self._ws_url = ws_url
-        self.markets = markets
-        self.tickers = None
-        self.candles_1m = None
-        self.candles_5m = None
-        self.candles_15m = None
-        self.candles_1h = None
-        self.candles_6h = None
-        self.candles_1d = None
-
-    def on_open(self):
-        self.message_count = 0
-
-    def on_message(self, msg):
-        if 'e' in msg:
-            df = None
-            if msg["e"] == "24hrMiniTicker" and "E" in msg and "s" in msg and "c" in msg:
-                # create dataframe from websocket message
-                df = pd.DataFrame(
-                    columns=["date", "market", "price"],
-                    data=[
-                        [
-                            self.convert_time(msg["E"]),
-                            msg["s"],
-                            msg["c"],
-                        ]
-                    ],
-                )
-
-                # set column types
-                df["date"] = df["date"].astype("datetime64[ns]")
-                df["price"] = df["price"].astype("float64")
-
-                # form candles
-                df["candle_1m"] = df["date"].dt.floor(freq="1T")
-                df["candle_5m"] = df["date"].dt.floor(freq="5T")
-                df["candle_15m"] = df["date"].dt.floor(freq="15T")
-                df["candle_1h"] = df["date"].dt.floor(freq="1H")
-                df["candle_6h"] = df["date"].dt.floor(freq="6H")
-                df["candle_1d"] = df["date"].dt.floor(freq="1D")
-
-            if df is not None:
-                # insert first entry
-                if self.tickers is None and len(df) > 0:
-                    self.tickers = df
-                # append future entries without duplicates
-                elif self.tickers is not None and len(df) > 0:
-                    self.tickers = (
-                        pd.concat([self.tickers, df])
-                        .drop_duplicates(subset="market", keep="last")
-                        .reset_index(drop=True)
-                    )
-
-                # convert dataframes to a time series
-                tsidx = pd.DatetimeIndex(
-                    pd.to_datetime(self.tickers["date"]).dt.strftime("%Y-%m-%dT%H:%M:%S.%Z")
-                )
-                self.tickers.set_index(tsidx, inplace=True)
-                self.tickers.index.name = "ts"
-
-        # print (f'{msg["time"]} {msg["product_id"]} {msg["price"]}')
-        # print(json.dumps(msg, indent=4, sort_keys=True))
-        self.message_count += 1

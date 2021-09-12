@@ -48,7 +48,7 @@ class Strategy:
             and self.app.disableBuyNearHigh() is True
             and (
                 price
-                > (self._df["close"].max() * (1 - self.app.noBuyNearHighPcnt() / 100))
+                > (self._df["close"].max() * (1 - self.app.buyNearHighPcnt() / 100))
             )
         ):
             log_text = (
@@ -60,7 +60,7 @@ class Strategy:
                 + " | Ignoring Buy Signal (price "
                 + str(price)
                 + " within "
-                + str(self.app.noBuyNearHighPcnt())
+                + str(self.app.buyNearHighPcnt())
                 + "% of high "
                 + str(self._df["close"].max())
                 + ")"
@@ -71,7 +71,14 @@ class Strategy:
 
         # if EMA, MACD are disabled, do not buy
         if self.app.disableBuyEMA() and self.app.disableBuyMACD():
-            log_text = (f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | EMA, MACD indicators are disabled")
+            log_text = (
+                str(now)
+                + " | "
+                + self.app.getMarket()
+                + " | "
+                + self.app.printGranularity()
+                + " | EMA, MACD indicators are disabled "
+            )
             Logger.warning(log_text)
 
             return False
@@ -207,9 +214,19 @@ class Strategy:
             and self.state.fib_low >= float(price)
             and (self.app.allowSellAtLoss() or margin > 0)
         ):
-            log_text = (f"! Loss Failsafe Triggered (Fibonacci Band: {str(self.state.fib_low)})")
+            log_text = (
+                "! Loss Failsafe Triggered (Fibonacci Band: "
+                + str(self.state.fib_low)
+                + ")"
+            )
             Logger.warning(log_text)
-            self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
+            self.app.notifyTelegram(
+                self.app.getMarket()
+                + " ("
+                + self.app.printGranularity()
+                + ") "
+                + log_text
+            )
             return True
 
         if debug:
@@ -235,9 +252,19 @@ class Strategy:
             and margin > self.app.trailingStopLossTrigger()
             and (self.app.allowSellAtLoss() or margin > 0)
         ):
-            log_text = (f"! Trailing Stop Loss Triggered (< {str(self.app.trailingStopLoss())}%)")
+            log_text = (
+                "! Trailing Stop Loss Triggered (< "
+                + str(self.app.trailingStopLoss())
+                + "%)"
+            )
             Logger.warning(log_text)
-            self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
+            self.app.notifyTelegram(
+                self.app.getMarket()
+                + " ("
+                + self.app.printGranularity()
+                + ") "
+                + log_text
+            )
             return True
 
         if debug:
@@ -271,7 +298,13 @@ class Strategy:
                 "! Loss Failsafe Triggered (< " + str(self.app.sellLowerPcnt()) + "%)"
             )
             Logger.warning(log_text)
-            self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
+            self.app.notifyTelegram(
+                self.app.getMarket()
+                + " ("
+                + self.app.printGranularity()
+                + ") "
+                + log_text
+            )
             return True
 
         if debug:
@@ -298,10 +331,16 @@ class Strategy:
             and (self.app.allowSellAtLoss() or margin > 0)
         ):
             log_text = (
-                f"! Profit Bank Triggered (> {str(self.app.sellUpperPcnt())}%)"
+                "! Profit Bank Triggered (> " + str(self.app.sellUpperPcnt()) + "%)"
             )
             Logger.warning(log_text)
-            self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
+            self.app.notifyTelegram(
+                self.app.getMarket()
+                + " ("
+                + self.app.printGranularity()
+                + ") "
+                + log_text
+            )
             return True
 
         if debug:
@@ -327,7 +366,13 @@ class Strategy:
             log_text = "! Profit Bank Triggered (Selling At Resistance)"
             Logger.warning(log_text)
             if not (not self.app.allowSellAtLoss() and margin <= 0):
-                self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
+                self.app.notifyTelegram(
+                    self.app.getMarket()
+                    + " ("
+                    + self.app.printGranularity()
+                    + ") "
+                    + log_text
+                )
             return True
 
         return False
