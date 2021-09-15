@@ -57,32 +57,32 @@ def defaultConfigParse(app, config):
         else:
             raise TypeError("sim must be of type str")
 
-    if "nobuynearhighpcnt" in config:
-        if isinstance(config["nobuynearhighpcnt"], (int, float, str)):
+    if "buynearhighpcnt" in config:
+        if isinstance(config["buynearhighpcnt"], (int, float, str)):
             p = re.compile(r"^\-*[0-9\.]{1,5}$")
-            if isinstance(config["nobuynearhighpcnt"], str) and p.match(
-                config["nobuynearhighpcnt"]
+            if isinstance(config["buynearhighpcnt"], str) and p.match(
+                config["buynearhighpcnt"]
             ):
-                if float(config["nobuynearhighpcnt"]) > 0:
-                    app.nobuynearhighpcnt = float(config["nobuynearhighpcnt"])
+                if float(config["buynearhighpcnt"]) > 0:
+                    app.buynearhighpcnt = float(config["buynearhighpcnt"])
                 else:
-                    raise ValueError("nobuynearhighpcnt must be positive")
+                    raise ValueError("buynearhighpcnt must be positive")
             elif (
-                isinstance(config["nobuynearhighpcnt"], (int, float))
-                and config["nobuynearhighpcnt"] >= 0
-                and config["nobuynearhighpcnt"] <= 100
+                isinstance(config["buynearhighpcnt"], (int, float))
+                and config["buynearhighpcnt"] >= 0
+                and config["buynearhighpcnt"] <= 100
             ):
-                if float(config["nobuynearhighpcnt"]) > 0:
-                    app.nobuynearhighpcnt = float(config["nobuynearhighpcnt"])
+                if float(config["buynearhighpcnt"]) > 0:
+                    app.buynearhighpcnt = float(config["buynearhighpcnt"])
                 else:
-                    raise ValueError("nobuynearhighpcnt must be positive")
+                    raise ValueError("buynearhighpcnt must be positive")
             elif (
-                isinstance(config["nobuynearhighpcnt"], (int, float))
-                and config["nobuynearhighpcnt"] < 0
+                isinstance(config["buynearhighpcnt"], (int, float))
+                and config["buynearhighpcnt"] < 0
             ):
-                raise ValueError("nobuynearhighpcnt must be positive")
+                raise ValueError("buynearhighpcnt must be positive")
         else:
-            raise TypeError("nobuynearhighpcnt must be of type int or str")
+            raise TypeError("buynearhighpcnt must be of type int or str")
 
     if "sellupperpcnt" in config:
         if isinstance(config["sellupperpcnt"], (int, float, str)):
@@ -376,20 +376,6 @@ def defaultConfigParse(app, config):
                 app.disabletracker = True
         else:
             raise TypeError("disabletracker must be of type int")
-
-    if "enableml" in config:
-        if isinstance(config["enableml"], int):
-            if bool(config["enableml"]):
-                app.enableml = True
-        else:
-            raise TypeError("enableml must be of type int")
-
-    if "websocket" in config:
-        if isinstance(config["websocket"], int):
-            if bool(config["websocket"]):
-                app.websocket = True
-        else:
-            raise TypeError("websocket must be of type int")
 
     # backward compatibility
     if "nosellatloss" in config:
