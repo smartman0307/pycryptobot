@@ -80,8 +80,6 @@ class BotConfig:
         self.enableml = False
         self.websocket = False
 
-        self.disableinsufficientfunds = False
-
         self.filelog = True
         self.logfile = (
             self.cli_args["logfile"] if self.cli_args["logfile"] else "pycryptobot.log"
