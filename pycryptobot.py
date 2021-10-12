@@ -9,7 +9,7 @@ import sched
 import sys
 import time
 import signal
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 
@@ -433,7 +433,7 @@ def executeJob(
                 sell_taker_fee=app.getTakerFee(),
             )
 
-            # handle immediate sell actions
+            # handle immedate sell actions
             if strategy.isSellTrigger(
                 price,
                 technical_analysis.getTradeExit(price),
@@ -618,7 +618,7 @@ def executeJob(
 
             if not app.isVerbose():
                 if state.last_action != "":
-                    # Not sure if this if is needed just preserving any existing functionality that may have been missed
+                    # Not sure if this if is needed just preserving any exisitng functionality that may have been missed
                     # Updated to show over margin and profit
                     if not app.isSimulation():
                         output_text = (
@@ -1551,10 +1551,10 @@ def main(websocket):
     except (BaseException, Exception) as e:
         # catch all not managed exceptions and send a Telegram message if configured
         app.notifyTelegram(f"Bot for {app.getMarket()} got an exception: {repr(e)}")
-
+        telegram_bot.removeactivebot()
         Logger.critical(repr(e))
-
-        raise
+        os._exit(0)
+        # raise
 
 
 if __name__ == "__main__":

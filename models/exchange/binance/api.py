@@ -877,7 +877,7 @@ class PublicAPI(AuthAPIBase):
             return pd.DataFrame()
 
     def getTicker(self, market: str = DEFAULT_MARKET, websocket=None) -> tuple:
-        """Retrieves the market ticker"""
+        """Retrives the market ticker"""
 
         # validates the market is syntactically correct
         if not self._isMarketValid(market):
