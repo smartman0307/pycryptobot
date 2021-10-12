@@ -433,7 +433,7 @@ def executeJob(
                 sell_taker_fee=app.getTakerFee(),
             )
 
-            # handle immedate sell actions
+            # handle immediate sell actions
             if strategy.isSellTrigger(
                 price,
                 technical_analysis.getTradeExit(price),
@@ -482,7 +482,7 @@ def executeJob(
             # work with this precision. It should save a couple of `precision` uses, one for each `truncate()` call.
             truncate = functools.partial(_truncate, n=precision)
 
-            price_text = "Close: " + truncate(price)
+            price_text = "Close: " + str(price)
             ema_text = ""
             if app.disableBuyEMA() is False:
                 ema_text = app.compare(
@@ -618,7 +618,7 @@ def executeJob(
 
             if not app.isVerbose():
                 if state.last_action != "":
-                    # Not sure if this if is needed just preserving any exisitng functionality that may have been missed
+                    # Not sure if this if is needed just preserving any existing functionality that may have been missed
                     # Updated to show over margin and profit
                     if not app.isSimulation():
                         output_text = (
