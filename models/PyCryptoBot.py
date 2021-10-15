@@ -383,9 +383,6 @@ class PyCryptoBot(BotConfig):
                 self.ema1226_6h_cache, market, 21600, start, end
             )
 
-            if len(self.ema1226_15m_cache) == 0:
-                raise Exception(f"No data return for selected date range {start} - {end}")
-
             if self.extraCandlesFound == False:
                 if granularity == 900:
                     if (
@@ -1072,7 +1069,8 @@ class PyCryptoBot(BotConfig):
                     )
 
                 else:
-                    endDate = self.getDateFromISO8601Str(str(pd.Series(datetime.now()).dt.round(freq="H")[0]))
+                    endDate = datetime.now()
+                    endDate = self.getDateFromISO8601Str(str(endDate))
                     if self.getExchange() == "coinbasepro":
                         endDate -= timedelta(
                             hours=random.randint(0, 8760 * 3)
