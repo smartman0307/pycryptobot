@@ -74,9 +74,6 @@ def executeJob(
             print(str(datetime.now()).format() + " - Bot is paused")
             _app.notifyTelegram(f"{_app.getMarket()} bot is paused")
             telegram_bot.updatebotstatus("paused")
-            if _app.enableWebsocket():
-                Logger.info("Stopping _websocket...")
-                _websocket.close()
 
         time.sleep(30)
         controlstatus = telegram_bot.checkbotcontrolstatus()
@@ -85,9 +82,6 @@ def executeJob(
         print(str(datetime.now()).format() + " - Bot has restarted")
         _app.notifyTelegram(f"{_app.getMarket()} bot has restarted")
         telegram_bot.updatebotstatus("active")
-        if _app.enableWebsocket():
-            Logger.info("Starting _websocket...")
-            _websocket.start()
 
     if controlstatus == "exit":
         _app.notifyTelegram(f"{_app.getMarket()} bot is stopping")
@@ -229,7 +223,7 @@ def executeJob(
 
     # use actual sim mode date to check smartchswitch
     if (
-        (last_api_call_datetime.seconds > 60 or _app.isSimulation())
+        last_api_call_datetime.seconds > 60
         and _app.getSmartSwitch() == 1
         and _app.getGranularity() == 3600
         and _app.is1hEMA1226Bull(current_sim_date, _websocket) is True
@@ -254,7 +248,7 @@ def executeJob(
 
     # use actual sim mode date to check smartchswitch
     if (
-        (last_api_call_datetime.seconds > 60 or _app.isSimulation())
+        last_api_call_datetime.seconds > 60
         and _app.getSmartSwitch() == 1
         and _app.getGranularity() == 900
         and _app.is1hEMA1226Bull(current_sim_date, _websocket) is False
@@ -359,16 +353,18 @@ def executeJob(
         two_black_gapping = bool(df_last["two_black_gapping"].values[0])
 
         # Log data for Telegram Bot
-        telegram_bot.addindicators("EMA", ema12gtema26co or ema12ltema26)
-        if not app.disableBuyElderRay():
+        if not _app.disableBuyElderRay():
             telegram_bot.addindicators("ERI", elder_ray_buy)
-        if app.disableBullOnly():
+        if _app.disableBullOnly() or (
+            df_last["sma50"].values[0] == df_last["sma200"].values[0]
+        ):
             telegram_bot.addindicators("BULL", goldencross)
-        if not app.disableBuyMACD():
+        if not _app.disableBuyEMA():
+            telegram_bot.addindicators("EMA", ema12gtema26co or ema12ltema26)
+        if not _app.disableBuyMACD():
             telegram_bot.addindicators("MACD", macdgtsignal or macdgtsignalco)
-        if not app.disableBuyOBV():
+        if not _app.disableBuyOBV():
             telegram_bot.addindicators("OBV", float(obv_pc) > 0)
-
 
         if _app.isSimulation():
             # Reset the Strategy so that the last record is the current sim date
@@ -1613,9 +1609,7 @@ def executeJob(
                 )
                 telegram_bot.addinfo(
                     f'{now} | {_app.getMarket()}{bullbeartext} | {_app.printGranularity()} | Current Price: {str(price)} is {str(round(((price-df["close"].max()) / df["close"].max())*100, 2))}% away from DF HIGH',
-                    round(price, 4),
-                    str(round(df["close"].max(), 4)),
-                    str(round(((price-df["close"].max()) / df["close"].max())*100, 2)) + '%'
+                    price,
                 )
 
             if _state.last_action == "BUY":
@@ -1672,19 +1666,19 @@ def executeJob(
                     s.enter(60, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
 
 
-def main(_websocket):
+def main():
     try:
         message = "Starting "
         if app.getExchange() == "coinbasepro":
             message += "Coinbase Pro bot"
             if app.enableWebsocket() and not app.isSimulation():
-                print("Opening _websocket to Coinbase Pro...")
+                print("Opening websocket to Coinbase Pro...")
                 _websocket = CWebSocketClient([app.getMarket()], app.getGranularity())
                 _websocket.start()
         elif app.getExchange() == "binance":
             message += "Binance bot"
             if app.enableWebsocket() and not app.isSimulation():
-                print("Opening _websocket to Binance...")
+                print("Opening websocket to Binance...")
                 _websocket = BWebSocketClient([app.getMarket()], app.getGranularity())
                 _websocket.start()
         elif app.getExchange() == "kucoin":
@@ -1701,14 +1695,14 @@ def main(_websocket):
         def runApp(_websocket):
             # run the first job immediately after starting
             if app.isSimulation():
-                executeJob(s, app, state, technical_analysis, websocket, trading_data)
+                executeJob(s, app, state, technical_analysis, _websocket, trading_data)
             else:
-                executeJob(s, app, state, technical_analysis, websocket)
+                executeJob(s, app, state, technical_analysis, _websocket)
 
             s.run()
 
         try:
-            runApp(websocket)
+            runApp(_websocket)
         except (KeyboardInterrupt, SystemExit):
             raise
         except (BaseException, Exception) as e:  # pylint: disable=broad-except
@@ -1725,7 +1719,7 @@ def main(_websocket):
                 map(s.cancel, s.queue)
 
                 # Restart the app
-                runApp(websocket)
+                runApp(_websocket)
             else:
                 raise
 
@@ -1744,7 +1738,7 @@ def main(_websocket):
         try:
             telegram_bot.removeactivebot()
             if app.enableWebsocket() and not app.isSimulation():
-                websocket.close()
+                _websocket.close()
             sys.exit(0)
         except SystemExit:
             # pylint: disable=protected-access
@@ -1764,4 +1758,4 @@ if __name__ == "__main__":
         sys.stderr.write("You need python 3.6 or higher to run this script\n")
         exit(1)
 
-    main(websocket)
+    main()
