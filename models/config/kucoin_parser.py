@@ -53,15 +53,9 @@ def parser(app, Kucoin_config, args={}):
             else:
                 print ('migration failed (io error)', "\n")
 
-        api_key_file = None
-        if 'api_key_file' in args and args['api_key_file'] is not None:
-            api_key_file = args['api_key_file']
-        elif 'api_key_file' in Kucoin_config:
-            api_key_file = Kucoin_config['api_key_file']
-
-        if api_key_file is not None:
+        if 'api_key_file' in Kucoin_config:
             try :
-                with open( api_key_file, 'r') as f :
+                with open( Kucoin_config['api_key_file'], 'r') as f :
                     key = f.readline().strip()
                     secret = f.readline().strip()
                     password = f.readline().strip()
@@ -69,7 +63,7 @@ def parser(app, Kucoin_config, args={}):
                 Kucoin_config['api_secret'] = secret
                 Kucoin_config['api_passphrase'] = password
             except :
-                raise RuntimeError(f"Unable to read {api_key_file}")
+                raise RuntimeError('Unable to read ' + Kucoin_config['api_key_file'])
 
         if 'api_key' in Kucoin_config and 'api_secret' in Kucoin_config and \
                 'api_passphrase' in Kucoin_config and 'api_url' in Kucoin_config:

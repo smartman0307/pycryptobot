@@ -245,11 +245,10 @@ def executeJob(
         if _app.isSimulation():
             _app.sim_smartswitch = True
 
-        if not _app.telegramTradesOnly():
-            _app.notifyTelegram(
-                _app.getMarket()
-                + " smart switch from granularity 3600 (1 hour) to 900 (15 min)"
-            )
+        _app.notifyTelegram(
+            _app.getMarket()
+            + " smart switch from granularity 3600 (1 hour) to 900 (15 min)"
+        )
 
         _app.setGranularity(Granularity.FIFTEEN_MINUTES)
         list(map(s.cancel, s.queue))
@@ -271,16 +270,15 @@ def executeJob(
         if _app.isSimulation():
             _app.sim_smartswitch = True
 
-        if not _app.telegramTradesOnly():
-            _app.notifyTelegram(
-                f"{_app.getMarket()} smart switch from granularity 900 (15 min) to 3600 (1 hour)"
-            )
+        _app.notifyTelegram(
+            f"{_app.getMarket()} smart switch from granularity 900 (15 min) to 3600 (1 hour)"
+        )
 
         _app.setGranularity(Granularity.ONE_HOUR)
         list(map(s.cancel, s.queue))
         s.enter(5, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
 
-    if _app.getExchange() == Exchange.BINANCE.value and _app.getGranularity() == Granularity.ONE_DAY:
+    if _app.getExchange() == Exchange.BINANCE and _app.getGranularity() == Granularity.ONE_DAY:
         if len(df) < 250:
             # data frame should have 250 rows, if not retry
             Logger.error(f"error: data frame length is < 250 ({str(len(df))})")
@@ -310,10 +308,9 @@ def executeJob(
                 Logger.info(
                     f"last_action change detected from {last_action_current} to {_state.last_action}"
                 )
-                if not _app.telegramTradesOnly():
-                    _app.notifyTelegram(
-                        f"{_app.getMarket} last_action change detected from {last_action_current} to {_state.last_action}"
-                    )
+                _app.notifyTelegram(
+                    f"{_app.getMarket} last_action change detected from {last_action_current} to {_state.last_action}"
+                )
 
         if not _app.isSimulation():
             ticker = _app.getTicker(_app.getMarket(), _websocket)
@@ -437,8 +434,8 @@ def executeJob(
                         _state.last_buy_price = exchange_last_buy["price"]
 
                     if (
-                        _app.getExchange() == Exchange.COINBASEPRO.value
-                        or _app.getExchange() == Exchange.COINBASEPRO.value
+                        _app.getExchange() == Exchange.COINBASEPRO
+                        or _app.getExchange() == Exchange.COINBASEPRO
                     ):
                         if _state.last_buy_fee != exchange_last_buy["fee"]:
                             _state.last_buy_fee = exchange_last_buy["fee"]
@@ -1026,15 +1023,11 @@ def executeJob(
                 # if live
                 if _app.isLive():
                     if not _app.insufficientfunds:
-                        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
                         _app.notifyTelegram(
                             _app.getMarket()
                             + " ("
                             + _app.printGranularity()
-                            + ") - "
-                            + now
-                            + "\n"
-                            + "BUY at "
+                            + ") BUY at "
                             + price_text
                         )
 
@@ -1203,10 +1196,7 @@ def executeJob(
                         _app.getMarket()
                         + " ("
                         + _app.printGranularity()
-                        + ") - "
-                        + now
-                        + "\n"
-                        + "SELL at "
+                        + ") SELL at "
                         + price_text
                         + " (margin: "
                         + margin_text
@@ -1308,9 +1298,7 @@ def executeJob(
                         _app.getMarket()
                         + " ("
                         + _app.printGranularity()
-                        + ") "
-                        + str(current_sim_date)
-                        + "\n - TEST SELL at "
+                        + ") TEST SELL at "
                         + price_text
                         + " (margin: "
                         + margin_text
@@ -1540,7 +1528,6 @@ def executeJob(
 
                 _app.notifyTelegram(
                     f"{_state.app.base_currency}{_state.app.quote_currency}\nSimulation Summary\n"
-                    + f"   Market: {state.app.base_currency}-{state.app.quote_currency}\n"
                     + f"   Buy Count: {_state.buy_count}\n"
                     + f"   Sell Count: {_state.sell_count}\n"
                     + f"   First Buy: {_state.first_buy_size}\n"
@@ -1651,9 +1638,9 @@ def executeJob(
         # if live but not websockets
         if not _app.disableTracker() and _app.isLive() and not _app.enableWebsocket():
             # update order tracker csv
-            if _app.getExchange() == Exchange.BINANCE.value:
+            if _app.getExchange() == Exchange.BINANCE:
                 account.saveTrackerCSV(_app.getMarket())
-            elif _app.getExchange() == Exchange.COINBASEPRO.value or _app.getExchange() == Exchange.COINBASEPRO.value:
+            elif _app.getExchange() == Exchange.COINBASEPRO or _app.getExchange() == Exchange.KUCOIN:
                 account.saveTrackerCSV()
 
         if _app.isSimulation():
@@ -1696,19 +1683,19 @@ def main():
     try:
         _websocket = None
         message = "Starting "
-        if app.getExchange() == Exchange.COINBASEPRO.value:
+        if app.getExchange() == Exchange.COINBASEPRO:
             message += "Coinbase Pro bot"
             if app.enableWebsocket() and not app.isSimulation():
                 print("Opening websocket to Coinbase Pro...")
                 _websocket = CWebSocketClient([app.getMarket()], app.getGranularity().to_integer)
                 _websocket.start()
-        elif app.getExchange() == Exchange.BINANCE.value:
+        elif app.getExchange() == Exchange.BINANCE:
             message += "Binance bot"
             if app.enableWebsocket() and not app.isSimulation():
                 print("Opening websocket to Binance...")
                 _websocket = BWebSocketClient([app.getMarket()], app.getGranularity())
                 _websocket.start()
-        elif app.getExchange() == Exchange.COINBASEPRO.value:
+        elif app.getExchange() == Exchange.KUCOIN:
             message += "Kucoin bot"
 
         smartSwitchStatus = "enabled" if app.getSmartSwitch() else "disabled"
@@ -1738,10 +1725,9 @@ def main():
                 time.sleep(30)
                 Logger.critical(f"Restarting application after exception: {repr(e)}")
 
-                if not app.disableTelegramErrorMsgs():
-                    app.notifyTelegram(
-                        f"Auto restarting bot for {app.getMarket()} after exception: {repr(e)}"
-                    )
+                app.notifyTelegram(
+                    f"Auto restarting bot for {app.getMarket()} after exception: {repr(e)}"
+                )
 
                 # Cancel the events queue
                 map(s.cancel, s.queue)
@@ -1773,8 +1759,7 @@ def main():
             os._exit(0)
     except (BaseException, Exception) as e:  # pylint: disable=broad-except
         # catch all not managed exceptions and send a Telegram message if configured
-        if not app.disableTelegramErrorMsgs():
-            app.notifyTelegram(f"Bot for {app.getMarket()} got an exception: {repr(e)}")
+        app.notifyTelegram(f"Bot for {app.getMarket()} got an exception: {repr(e)}")
         telegram_bot.removeactivebot()
         Logger.critical(repr(e))
         # pylint: disable=protected-access
