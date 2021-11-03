@@ -1,9 +1,6 @@
 import os
 import json
-import subprocess
 from datetime import datetime
-
-from pandas.core.frame import DataFrame
 from models.PyCryptoBot import PyCryptoBot
 from models.helper.LogHelper import Logger
 
@@ -128,7 +125,3 @@ class TelegramBotHelper:
     def removeactivebot(self) -> None:
         if self.app.enableTelegramBotControl():
             self.deletemargin()
-
-    def save_scanner_output(self, exchange, quote, output: DataFrame) -> None:
-
-        output.to_json(os.path.join(self.app.telegramdatafolder, "telegram_data", f"{exchange}_{quote}_output.json"), orient='index')
