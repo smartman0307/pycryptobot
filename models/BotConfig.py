@@ -1,4 +1,5 @@
 import argparse
+import fileinput
 import json
 import os
 import re
@@ -8,7 +9,6 @@ import yaml
 from yaml.constructor import ConstructorError
 from yaml.scanner import ScannerError
 
-from models.ConfigBuilder import ConfigBuilder
 from models.chat import Telegram
 from models.config import (
     binanceConfigParser,
@@ -17,8 +17,8 @@ from models.config import (
     dummyConfigParser,
     loggerConfigParser,
 )
+from models.ConfigBuilder import ConfigBuilder
 from models.helper.LogHelper import Logger
-from models.exchange.ExchangesEnum import Exchange
 
 
 class BotConfig:
@@ -50,7 +50,7 @@ class BotConfig:
         self.sell_at_loss = 1
         self.smart_switch = 1
         self.telegram = False
-        self.telegramdatafolder = ""
+        self.telegramdatafolder = "."
         self.buypercent = 100
         self.sellpercent = 100
         self.last_action = None
@@ -81,6 +81,7 @@ class BotConfig:
         self.disabletracker = False
         self.enableml = False
         self.websocket = False
+        self.enableexitaftersell = False
 
         self.enableinsufficientfundslogging = False
         self.insufficientfunds = False
@@ -161,16 +162,16 @@ class BotConfig:
         ) = self._set_default_api_info(self.exchange)
 
         if self.config_provided:
-            if self.exchange == Exchange.COINBASEPRO.value and "coinbasepro" in self.config:
+            if self.exchange == "coinbasepro" and "coinbasepro" in self.config:
                 coinbaseProConfigParser(self, self.config["coinbasepro"], self.cli_args)
 
-            elif self.exchange == Exchange.BINANCE.value and "binance" in self.config:
+            elif self.exchange == "binance" and "binance" in self.config:
                 binanceConfigParser(self, self.config["binance"], self.cli_args)
 
-            elif self.exchange == Exchange.KUCOIN.value and "kucoin" in self.config:
+            elif self.exchange == "kucoin" and "kucoin" in self.config:
                 kucoinConfigParser(self, self.config["kucoin"], self.cli_args)
 
-            elif self.exchange == Exchange.DUMMY.value and "dummy" in self.config:
+            elif self.exchange == "dummy" and "dummy" in self.config:
                 dummyConfigParser(self, self.config["dummy"], self.cli_args)
 
             if (
@@ -181,9 +182,12 @@ class BotConfig:
             ):
                 telegram = self.config["telegram"]
                 self._chat_client = Telegram(telegram["token"], telegram["client_id"])
-                if "datafolder" in self.config["telegram"]:
+                if "datafolder" in telegram:
                     self.telegramdatafolder = telegram["datafolder"]
                 self.telegram = True
+
+            if "scanner" in self.config:
+                self.enableexitaftersell = self.config["scanner"]["enableexitaftersell"] if "enableexitaftersell" in self.config["scanner"] else False
 
             if "logger" in self.config:
                 loggerConfigParser(self, self.config["logger"])
@@ -194,9 +198,9 @@ class BotConfig:
                 self.logfile == "/dev/null"
 
         else:
-            if self.exchange == Exchange.BINANCE.value:
+            if self.exchange == "binance":
                 binanceConfigParser(self, None, self.cli_args)
-            elif self.exchange == Exchange.KUCOIN.value:
+            elif self.exchange == "kucoin":
                 kucoinConfigParser(self, None, self.cli_args)
             else:
                 coinbaseProConfigParser(self, None, self.cli_args)
