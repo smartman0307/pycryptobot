@@ -1,9 +1,5 @@
 import os
 import json
-import subprocess
-from datetime import datetime
-
-from pandas.core.frame import DataFrame
 from models.PyCryptoBot import PyCryptoBot
 from models.helper.LogHelper import Logger
 
@@ -28,7 +24,7 @@ class TelegramBotHelper:
         if os.path.isfile(os.path.join(self.app.telegramdatafolder, "telegram_data", self.filename)):
             self._read_data()
         else:
-            ds = {'botcontrol' : {"status":"active", "manualsell" : False, "manualbuy" : False, "started": datetime.now().isoformat()}}
+            ds = {'botcontrol' : {"status":"active", "manualsell" : False, "manualbuy" : False}}
             self.data = ds
             self._write_data()
 
@@ -61,14 +57,14 @@ class TelegramBotHelper:
         if self.app.enableTelegramBotControl():
             self._read_data()
 
-            addmarket = {'exchange' : self.exchange, 'margin' : margin, 'delta' : delta, 'price' : price, "df_high": " ", "from_df_high": " "}
+            addmarket = {'exchange' : self.exchange, 'margin' : margin, 'delta' : delta, 'price' : price}
             self.data.update(addmarket)
             self._write_data()
 
-    def addinfo(self, message: str = "", price: str = "", df_high: str="", from_df_high: str="") -> None:
+    def addinfo(self, message: str = "", price: str = "") -> None:
         if self.app.enableTelegramBotControl():
             self._read_data()
-            addmarket = {"message": message, "margin": " ", "delta": " ", "price" : price, "exchange" : self.exchange, "df_high": df_high, "from_df_high": from_df_high}
+            addmarket = {"message": message, "margin": " ", "delta": " ", "price" : price, "exchange" : self.exchange}
             self.data.update(addmarket)
             self._write_data()
 
@@ -128,7 +124,3 @@ class TelegramBotHelper:
     def removeactivebot(self) -> None:
         if self.app.enableTelegramBotControl():
             self.deletemargin()
-
-    def save_scanner_output(self, exchange, quote, output: DataFrame) -> None:
-
-        output.to_json(os.path.join(self.app.telegramdatafolder, "telegram_data", f"{exchange}_{quote}_output.json"), orient='index')

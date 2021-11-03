@@ -1,9 +1,8 @@
+import pandas as pd
 import math
 import random
 import re
 import urllib3
-import json
-import pandas as pd
 from datetime import datetime, timedelta
 from typing import Union
 from urllib3.exceptions import ReadTimeoutError
@@ -19,28 +18,16 @@ from models.BotConfig import BotConfig
 # disable insecure ssl warning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
 def to_coinbase_pro_granularity(granularity: int) -> int:
     return granularity
-
 
 def to_binance_granularity(granularity: int) -> str:
     return {60: "1m", 300: "5m", 900: "15m", 3600: "1h", 21600: "6h", 86400: "1d"}[
         granularity
     ]
 
-
 def to_kucoin_granularity(granularity: int) -> str:
-    return {
-        60: "1min",
-        300: "5min",
-        900: "15min",
-        1800: "30min",
-        3600: "1hour",
-        21600: "6hour",
-        86400: "1day",
-    }[granularity]
-
+    return {60: '1min', 300: '5min', 900: '15min', 1800: '30min', 3600: '1hour', 21600: '6hour', 86400: '1day'}[granularity]
 
 #  pylint: disable=unsubscriptable-object
 def truncate(f: Union[int, float], n: Union[int, float]) -> str:
@@ -89,26 +76,8 @@ class PyCryptoBot(BotConfig):
         ]
     )
 
-    def getConfig(self) -> dict:
-        try:
-            config = json.loads(open(self.config_file, "r").read())
-
-            if self.exchange in config:
-                if "config" in config[self.exchange]:
-                    return config[self.exchange]["config"]
-                else:
-                    return {}
-            else:
-                return {}
-        except IOError:
-            return {}
-
     def _isCurrencyValid(self, currency):
-        if (
-            self.exchange == "coinbasepro"
-            or self.exchange == "binance"
-            or self.exchange == "kucoin"
-        ):
+        if self.exchange == "coinbasepro" or self.exchange == "binance" or self.exchange == 'kucoin':
             p = re.compile(r"^[1-9A-Z]{2,5}$")
             return p.match(currency)
 
@@ -122,7 +91,7 @@ class PyCryptoBot(BotConfig):
             p = re.compile(r"^[A-Z0-9]{6,12}$")
             if p.match(market):
                 return True
-            p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
+            p =re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
             if p.match(market):
                 return True
             return False
@@ -203,35 +172,36 @@ class PyCryptoBot(BotConfig):
     def getBuyPercent(self):
         try:
             return int(self.buypercent)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return 100
 
     def getSellPercent(self):
         try:
             return int(self.sellpercent)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return 100
 
     def getBuyMaxSize(self):
         try:
             return float(self.buymaxsize)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return None
 
     def getBuyNearHighPcnt(self):
         try:
             return float(self.nobuynearhighpcnt)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return None
 
     def getDateFromISO8601Str(self, date: str):
-        # if date passed from datetime.now() remove milliseconds
+
+        # If date passed from datetime.now() remove milliseconds
         if date.find(".") != -1:
             dt = date.split(".")[0]
             date = dt
 
         date = date.replace("T", " ") if date.find("T") != -1 else date
-        # add time in case only a date is passed in
+        # Add time in case only a date is passed in
         new_date_str = f"{date} 00:00:00" if len(date) == 10 else date
 
         return datetime.strptime(new_date_str, "%Y-%m-%d %H:%M:%S")
@@ -254,17 +224,13 @@ class PyCryptoBot(BotConfig):
                 return api.getHistoricalData(
                     market, to_binance_granularity(granularity), websocket
                 )
-        elif self.exchange == "kucoin":  # returns data from coinbase if not specified
+        elif self.exchange == 'kucoin': # returns data from coinbase if not specified
             api = KPublicAPI(api_url=self.getAPIURL())
 
-            if iso8601start != "" and iso8601end == "":
-                return api.getHistoricalData(
-                    market, to_kucoin_granularity(granularity), iso8601start
-                )
-            elif iso8601start != "" and iso8601end != "":
-                return api.getHistoricalData(
-                    market, to_kucoin_granularity(granularity), iso8601start, iso8601end
-                )
+            if iso8601start != '' and iso8601end == '':
+                return api.getHistoricalData(market, to_kucoin_granularity(granularity), iso8601start)
+            elif iso8601start != '' and iso8601end != '':
+                return api.getHistoricalData(market, to_kucoin_granularity(granularity), iso8601start, iso8601end)
             else:
                 return api.getHistoricalData(market, to_kucoin_granularity(granularity))
         else:  # returns data from coinbase if not specified
@@ -292,13 +258,13 @@ class PyCryptoBot(BotConfig):
 
     def getSmartSwitchDataFrame(
         self,
-        app,
         df: pd.DataFrame,
         market,
         granularity: int,
         simstart: str = "",
         simend: str = "",
     ) -> pd.DataFrame:
+
         if self.isSimulation():
             result_df_cache = df
 
@@ -309,33 +275,27 @@ class PyCryptoBot(BotConfig):
                 df_first = None
                 df_last = None
 
-                # logger.debug("Row Count (" + str(granularity) + "): " + str(df.shape[0]))
+                # Logger.debug("Row Count (" + str(granularity) + "): " + str(df.shape[0]))
                 # if df already has data get first and last record date
                 df_first = self.getDateFromISO8601Str(str(df.head(1).index.format()[0]))
                 df_last = self.getDateFromISO8601Str(str(df.tail(1).index.format()[0]))
 
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 # if df = None create a new data frame
                 result_df_cache = pd.DataFrame()
 
             if df_first is None and df_last is None:
-                text_box = TextBox(80, 26)
-
-                if not app.isSimulation() or (
-                    app.isSimulation() and not app.simResultOnly()
-                ):
-                    text_box.singleLine()
-                    if self.smart_switch:
-                        text_box.center(
-                            f"*** Getting smartswitch ({str(granularity)}) market data ***"
-                        )
-                    else:
-                        text_box.center(
-                            f"*** Getting ({str(granularity)}) market data ***"
-                        )
+                textBox = TextBox(80, 26)
+                textBox.singleLine()
+                if self.smart_switch:
+                    textBox.center(
+                        f"*** Getting smartswitch ({str(granularity)}) market data ***"
+                    )
+                else:
+                    textBox.center(f"*** Getting ({str(granularity)}) market data ***")
 
                 df_first = simend
-                df_first -= timedelta(minutes=((granularity / 60) * 200))
+                df_first -= timedelta(minutes=((granularity / 60)*200))
                 df1 = self.getHistoricalData(
                     market,
                     granularity,
@@ -348,19 +308,14 @@ class PyCryptoBot(BotConfig):
                 originalSimStart = self.getDateFromISO8601Str(str(simstart))
                 addingExtraCandles = False
                 while df_first.isoformat(timespec="milliseconds") > simstart.isoformat(
-                    timespec="milliseconds"
-                ) or df_first.isoformat(
-                    timespec="milliseconds"
-                ) > originalSimStart.isoformat(
-                    timespec="milliseconds"
-                ):
+                    timespec="milliseconds") or df_first.isoformat(
+                    timespec="milliseconds") > originalSimStart.isoformat(
+                    timespec="milliseconds"):
 
                     end_date = df_first
                     df_first -= timedelta(minutes=(300 * (granularity / 60)))
 
-                    if df_first.isoformat(timespec="milliseconds") < simstart.isoformat(
-                        timespec="milliseconds"
-                    ):
+                    if df_first.isoformat(timespec="milliseconds") < simstart.isoformat(timespec="milliseconds"):
                         df_first = self.getDateFromISO8601Str(str(simstart))
 
                     df2 = self.getHistoricalData(
@@ -383,60 +338,53 @@ class PyCryptoBot(BotConfig):
 
                     # create df with 300 candles before the required startdate to match live
                     if df_first.isoformat(
-                        timespec="milliseconds"
-                    ) == simstart.isoformat(timespec="milliseconds"):
+                        timespec="milliseconds") == simstart.isoformat(timespec="milliseconds"):
                         if addingExtraCandles == False:
                             simstart -= timedelta(minutes=(300 * (granularity / 60)))
                         addingExtraCandles = True
                         self.extraCandlesFound = True
 
-                if not app.isSimulation() or (
-                    app.isSimulation() and not app.simResultOnly()
-                ):
-                    text_box.doubleLine()
+                textBox.doubleLine()
 
             if len(result_df_cache) > 0 and "morning_star" not in result_df_cache:
+
                 result_df_cache.sort_values(by=["date"], ascending=True, inplace=True)
 
             if self.smart_switch == False:
                 if self.extraCandlesFound == False:
-                    text_box = TextBox(80, 26)
-                    text_box.singleLine()
-                    text_box.center(
+                    textBox = TextBox(80, 26)
+                    textBox.singleLine()
+                    textBox.center(
                         f"{str(self.exchange)} is not returning data for the requested start date."
                     )
-                    text_box.center(
+                    textBox.center(
                         f"Switching to earliest start date: {str(result_df_cache.head(1).index.format()[0])}"
                     )
-                    text_box.singleLine()
+                    textBox.singleLine()
                     self.simstartdate = str(result_df_cache.head(1).index.format()[0])
 
             return result_df_cache.copy()
 
     def getSmartSwitchHistoricalDataChained(
         self,
-        _app,
+        market,
+        granularity: int,
         start: str = "",
         end: str = "",
     ) -> pd.DataFrame:
-        market = _app.getMarket()
-        granularity = _app.getGranularity()
-
         if self.isSimulation():
             self.ema1226_15m_cache = self.getSmartSwitchDataFrame(
-                _app, self.ema1226_15m_cache, market, 900, start, end
+                self.ema1226_15m_cache, market, 900, start, end
             )
             self.ema1226_1h_cache = self.getSmartSwitchDataFrame(
-                _app, self.ema1226_1h_cache, market, 3600, start, end
+                self.ema1226_1h_cache, market, 3600, start, end
             )
             self.ema1226_6h_cache = self.getSmartSwitchDataFrame(
-                _app, self.ema1226_6h_cache, market, 21600, start, end
+                self.ema1226_6h_cache, market, 21600, start, end
             )
 
             if len(self.ema1226_15m_cache) == 0:
-                raise Exception(
-                    f"No data return for selected date range {start} - {end}"
-                )
+                raise Exception(f"No data return for selected date range {start} - {end}")
 
             if self.extraCandlesFound == False:
                 if granularity == 900:
@@ -446,15 +394,15 @@ class PyCryptoBot(BotConfig):
                         ).isoformat()
                         != self.getDateFromISO8601Str(start).isoformat()
                     ):
-                        text_box = TextBox(80, 26)
-                        text_box.singleLine()
-                        text_box.center(
+                        textBox = TextBox(80, 26)
+                        textBox.singleLine()
+                        textBox.center(
                             f"{str(self.exchange)}is not returning data for the requested start date."
                         )
-                        text_box.center(
+                        textBox.center(
                             f"Switching to earliest start date: {str(self.ema1226_15m_cache.head(1).index.format()[0])}"
                         )
-                        text_box.singleLine()
+                        textBox.singleLine()
                         self.simstartdate = str(
                             self.ema1226_15m_cache.head(1).index.format()[0]
                         )
@@ -465,15 +413,15 @@ class PyCryptoBot(BotConfig):
                         ).isoformat()
                         != self.getDateFromISO8601Str(start).isoformat()
                     ):
-                        text_box = TextBox(80, 26)
-                        text_box.singleLine()
-                        text_box.center(
+                        textBox = TextBox(80, 26)
+                        textBox.singleLine()
+                        textBox.center(
                             f"{str(self.exchange)} is not returning data for the requested start date."
                         )
-                        text_box.center(
+                        textBox.center(
                             f"Switching to earliest start date: {str(self.ema1226_1h_cache.head(1).index.format()[0])}"
                         )
-                        text_box.singleLine()
+                        textBox.singleLine()
                         self.simstartdate = str(
                             self.ema1226_1h_cache.head(1).index.format()[0]
                         )
@@ -678,7 +626,7 @@ class PyCryptoBot(BotConfig):
             api = BPublicAPI(api_url=self.getAPIURL())
             return api.getTicker(market, websocket)
 
-        elif self.exchange == "kucoin":
+        elif self.exchange == 'kucoin':
             api = KPublicAPI(api_url=self.getAPIURL())
             return api.getTicker(market)
         else:  # returns data from coinbase if not specified
@@ -688,7 +636,7 @@ class PyCryptoBot(BotConfig):
     def getTime(self):
         if self.exchange == "coinbasepro":
             return CBPublicAPI().getTime()
-        elif self.exchange == "kucoin":
+        elif self.exchange == 'kucoin':
             return KPublicAPI(api_url=self.getAPIURL()).getTime()
         elif self.exchange == "binance":
             try:
@@ -736,9 +684,6 @@ class PyCryptoBot(BotConfig):
 
     def allowSellAtLoss(self) -> bool:
         return self.sell_at_loss == 1
-
-    def simResultOnly(self) -> bool:
-        return self.simresultonly
 
     def showConfigBuilder(self) -> bool:
         return self.configbuilder
@@ -989,7 +934,7 @@ class PyCryptoBot(BotConfig):
                 self.getAPIPassphrase(),
                 self.getAPIURL(),
             )
-            return api.getMakerFee()
+            return api.getMakerFee() 
         else:
             return 0.005
 
@@ -1007,12 +952,12 @@ class PyCryptoBot(BotConfig):
                     self.getAPIURL(),
                 )
                 return api.marketBuy(market, float(truncate(quote_currency, 2)))
-            elif self.exchange == "kucoin":
+            elif self.exchange == 'kucoin':
                 api = KAuthAPI(
-                    self.getAPIKey(),
-                    self.getAPISecret(),
-                    self.getAPIPassphrase(),
-                    self.getAPIURL(),
+                    self.getAPIKey(), 
+                    self.getAPISecret(), 
+                    self.getAPIPassphrase(), 
+                    self.getAPIURL()
                 )
                 return api.marketBuy(market, float(truncate(quote_currency, 2)))
             elif self.exchange == "binance":
@@ -1047,13 +992,13 @@ class PyCryptoBot(BotConfig):
                         recv_window=self.recv_window,
                     )
                     return api.marketSell(market, base_currency)
-                elif self.exchange == "kucoin":
+                elif self.exchange == 'kucoin':
                     api = KAuthAPI(
-                        self.getAPIKey(),
-                        self.getAPISecret(),
-                        self.getAPIPassphrase(),
-                        self.getAPIURL(),
-                    )
+                        self.getAPIKey(), 
+                        self.getAPISecret(), 
+                        self.getAPIPassphrase(), 
+                        self.getAPIURL()
+                        )
                     return api.marketSell(market, base_currency)
             else:
                 return None
@@ -1071,10 +1016,12 @@ class PyCryptoBot(BotConfig):
                 self.quote_currency,
             ) = coinbaseProParseMarket(market)
 
-        elif self.exchange == "kucoin":
-            (self.market, self.base_currency, self.quote_currency) = kucoinParseMarket(
-                market
-            )
+        elif self.exchange == 'kucoin':
+            (
+                self.market, 
+                self.base_currency, 
+                self.quote_currency
+            ) = kucoinParseMarket(market)
 
         return (self.market, self.base_currency, self.quote_currency)
 
@@ -1086,12 +1033,8 @@ class PyCryptoBot(BotConfig):
         if isinstance(flag, int) and flag in [0, 1]:
             self.sell_at_loss = flag
 
-    def startApp(self, app, account, last_action="", banner=True):
-        if (
-            banner
-            and not app.isSimulation()
-            or (app.isSimulation() and not app.simResultOnly())
-        ):
+    def startApp(self, account, last_action="", banner=True):
+        if banner:
             self._generate_banner()
 
         self.appStarted = True
@@ -1129,9 +1072,7 @@ class PyCryptoBot(BotConfig):
                     )
 
                 else:
-                    endDate = self.getDateFromISO8601Str(
-                        str(pd.Series(datetime.now()).dt.round(freq="H")[0])
-                    )
+                    endDate = self.getDateFromISO8601Str(str(pd.Series(datetime.now()).dt.round(freq="H")[0]))
                     if self.getExchange() == "coinbasepro":
                         endDate -= timedelta(
                             hours=random.randint(0, 8760 * 3)
@@ -1155,7 +1096,6 @@ class PyCryptoBot(BotConfig):
 
                     else:
                         tradingData = self.getSmartSwitchDataFrame(
-                            app,
                             tradingData,
                             self.market,
                             self.getGranularity(),
@@ -1181,21 +1121,21 @@ class PyCryptoBot(BotConfig):
                     )
 
                 if banner:
-                    text_box = TextBox(80, 26)
+                    textBox = TextBox(80, 26)
                     startDate = str(startDate.isoformat())
                     endDate = str(endDate.isoformat())
-                    text_box.line("Sampling start", str(startDate))
-                    text_box.line("Sampling end", str(endDate))
+                    textBox.line("Sampling start", str(startDate))
+                    textBox.line("Sampling end", str(endDate))
                     if self.simstartdate != None and len(tradingData) < 300:
-                        text_box.center("WARNING: Using less than 300 intervals")
-                        text_box.line("Interval size", str(len(tradingData)))
-                    text_box.doubleLine()
+                        textBox.center("WARNING: Using less than 300 intervals")
+                        textBox.line("Interval size", str(len(tradingData)))
+                    textBox.doubleLine()
 
             else:
                 tradingData = pd.DataFrame()
 
                 startDate = self.getDateFromISO8601Str(str(datetime.now()))
-                startDate -= timedelta(minutes=(self.getGranularity() / 60) * 2)
+                startDate -= timedelta(minutes=(self.getGranularity()/60)*2)
                 endDate = startDate
                 startDate = pd.Series(startDate).dt.round(freq="H")[0]
                 endDate = pd.Series(endDate).dt.round(freq="H")[0]
@@ -1205,7 +1145,6 @@ class PyCryptoBot(BotConfig):
                     endDate = datetime.now()
 
                 tradingData = self.getSmartSwitchDataFrame(
-                    app,
                     tradingData,
                     self.getMarket(),
                     self.getGranularity(),
@@ -1234,133 +1173,125 @@ class PyCryptoBot(BotConfig):
         self._chat_client.send(msg)
 
     def _generate_banner(self) -> None:
-        text_box = TextBox(80, 26)
-        text_box.singleLine()
-        text_box.center("Python Crypto Bot")
-        text_box.singleLine()
-        text_box.line("Release", self.getVersionFromREADME())
-        text_box.singleLine()
+        textBox = TextBox(80, 26)
+        textBox.singleLine()
+        textBox.center("Python Crypto Bot")
+        textBox.singleLine()
+        textBox.line("Release", self.getVersionFromREADME())
+        textBox.singleLine()
 
         if self.isVerbose():
-            text_box.line("Market", self.getMarket())
-            text_box.line("Granularity", str(self.getGranularity()) + " seconds")
-            text_box.singleLine()
+            textBox.line("Market", self.getMarket())
+            textBox.line("Granularity", str(self.getGranularity()) + " seconds")
+            textBox.singleLine()
 
         if self.isLive():
-            text_box.line("Bot Mode", "LIVE - live trades using your funds!")
+            textBox.line("Bot Mode", "LIVE - live trades using your funds!")
         else:
-            text_box.line("Bot Mode", "TEST - test trades using dummy funds :)")
+            textBox.line("Bot Mode", "TEST - test trades using dummy funds :)")
 
-        text_box.line("Bot Started", str(datetime.now()))
-        text_box.line("Exchange", str(self.exchange))
-        text_box.doubleLine()
+        textBox.line("Bot Started", str(datetime.now()))
+        textBox.line("Exchange", str(self.exchange))
+        textBox.doubleLine()
 
         if self.sellUpperPcnt() != None:
-            text_box.line(
+            textBox.line(
                 "Sell Upper", str(self.sellUpperPcnt()) + "%  --sellupperpcnt  <pcnt>"
             )
 
         if self.sellLowerPcnt() != None:
-            text_box.line(
+            textBox.line(
                 "Sell Lower", str(self.sellLowerPcnt()) + "%  --selllowerpcnt  <pcnt>"
             )
 
         if self.noSellMaxPercent() != None:
-            text_box.line(
+            textBox.line(
                 "No Sell Max",
                 str(self.noSellMaxPercent()) + "%  --nosellmaxpcnt  <pcnt>",
             )
 
         if self.noSellMinPercent() != None:
-            text_box.line(
+            textBox.line(
                 "No Sell Min",
                 str(self.noSellMinPercent()) + "%  --nosellminpcnt  <pcnt>",
             )
 
         if self.trailingStopLoss() != None:
-            text_box.line(
+            textBox.line(
                 "Trailing Stop Loss",
                 str(self.trailingStopLoss()) + "%  --trailingstoploss  <pcnt>",
             )
 
         if self.trailingStopLossTrigger() != None:
-            text_box.line(
+            textBox.line(
                 "Trailing Stop Loss Trg",
                 str(self.trailingStopLossTrigger()) + "%  --trailingstoplosstrigger",
             )
 
-        text_box.line("Sell At Loss", str(self.allowSellAtLoss()) + "  --sellatloss ")
-        text_box.line(
+        textBox.line("Sell At Loss", str(self.allowSellAtLoss()) + "  --sellatloss ")
+        textBox.line(
             "Sell At Resistance", str(self.sellAtResistance()) + "  --sellatresistance"
         )
-        text_box.line(
+        textBox.line(
             "Trade Bull Only", str(not self.disableBullOnly()) + "  --disablebullonly"
         )
-        text_box.line(
+        textBox.line(
             "Allow Buy Near High",
             str(not self.disableBuyNearHigh()) + "  --disablebuynearhigh",
         )
         if self.disableBuyNearHigh():
-            text_box.line(
+            textBox.line(
                 "No Buy Near High Pcnt",
                 str(self.noBuyNearHighPcnt()) + "%  --nobuynearhighpcnt <pcnt>",
             )
-        text_box.line(
+        textBox.line(
             "Use Buy MACD", str(not self.disableBuyMACD()) + "  --disablebuymacd"
         )
-        text_box.line(
-            "Use Buy EMA", str(not self.disableBuyEMA()) + "  --disablebuyema"
-        )
-        text_box.line(
-            "Use Buy OBV", str(not self.disableBuyOBV()) + "  --disablebuyobv"
-        )
-        text_box.line(
+        textBox.line("Use Buy EMA", str(not self.disableBuyEMA()) + "  --disablebuyema")
+        textBox.line("Use Buy OBV", str(not self.disableBuyOBV()) + "  --disablebuyobv")
+        textBox.line(
             "Use Buy Elder-Ray",
             str(not self.disableBuyElderRay()) + "  --disablebuyelderray",
         )
-        text_box.line(
+        textBox.line(
             "Sell Fibonacci Low",
             str(not self.disableFailsafeFibonacciLow())
             + "  --disablefailsafefibonaccilow",
         )
 
         if self.sellLowerPcnt() != None:
-            text_box.line(
+            textBox.line(
                 "Sell Lower Pcnt",
                 str(not self.disableFailsafeLowerPcnt())
                 + "  --disablefailsafelowerpcnt",
             )
 
         if self.sellUpperPcnt() != None:
-            text_box.line(
+            textBox.line(
                 "Sell Upper Pcnt",
                 str(not self.disableFailsafeLowerPcnt())
                 + "  --disableprofitbankupperpcnt",
             )
 
-        text_box.line(
+        textBox.line(
             "Candlestick Reversal",
             str(not self.disableProfitbankReversal()) + "  --disableprofitbankreversal",
         )
-        text_box.line("Telegram", str(not self.disabletelegram) + "  --disabletelegram")
-        text_box.line("Log", str(not self.disableLog()) + "  --disablelog")
-        text_box.line("Tracker", str(not self.disableTracker()) + "  --disabletracker")
-        text_box.line("Auto restart Bot", str(self.autoRestart()) + "  --autorestart")
-        text_box.line("Web Socket", str(self.websocket) + "  --websocket")
-        text_box.line(
-            "Insufficient Funds Logging",
-            str(self.enableinsufficientfundslogging)
-            + "  --enableinsufficientfundslogging",
-        )
+        textBox.line("Telegram", str(not self.disabletelegram) + "  --disabletelegram")
+        textBox.line("Log", str(not self.disableLog()) + "  --disablelog")
+        textBox.line("Tracker", str(not self.disableTracker()) + "  --disabletracker")
+        textBox.line("Auto restart Bot", str(self.autoRestart()) + "  --autorestart")
+        textBox.line("Web Socket", str(self.websocket) + "  --websocket")
+        textBox.line("Insufficient Funds Logging", str(self.enableinsufficientfundslogging) + "  --enableinsufficientfundslogging")
 
         if self.getBuyMaxSize():
-            text_box.line(
+            textBox.line(
                 "Max Buy Size", str(self.getBuyMaxSize()) + "  --buymaxsize <size>"
             )
 
         if self.disablebuyema and self.disablebuymacd:
-            text_box.center(
+            textBox.center(
                 "WARNING : EMA and MACD indicators disabled, no buy events will happen"
             )
 
-        text_box.doubleLine()
+        textBox.doubleLine()
