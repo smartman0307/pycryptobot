@@ -51,7 +51,6 @@ class BotConfig:
         self.smart_switch = 1
         self.telegram = False
         self.telegramdatafolder = ""
-        self.logbuysellinjson = False
         self.buypercent = 100
         self.sellpercent = 100
         self.last_action = None
@@ -517,7 +516,6 @@ class BotConfig:
             help="Enable Machine Learning E.g. seasonal ARIMA model for predictions",
         )
         parser.add_argument("--websocket", action="store_true", help="Enable websocket")
-        parser.add_argument("--logbuysellinjson", action="store_true", help="Enable logging orders in json format")
 
         # pylint: disable=unused-variable
         args, unknown = parser.parse_known_args()
