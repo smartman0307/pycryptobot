@@ -8,15 +8,6 @@ Upgrade version:
 Upgrade library dependencies (if required):
 - python3 -m pip install -r requirements.txt -U
 
-## [4.4.0] - 2021-11-01
-
-- Rename /restartbots to /resumebots
-- Fixed error when {market}.json file might not be complete (bot stopped).
-- Add /cleandata to remove and {market}.json file are not complete (bot stopped)
-- Add not to create telegram_data folder when running sims
-- Add /scanner to TG Bot to scan marks and start bots
-- Add multiple market scanning to scanner.py
-
 ## [4.3.1] - 2021-10-28
 
 - fix for Kucoin margin calculation
