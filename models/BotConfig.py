@@ -18,6 +18,7 @@ from models.config import (
     loggerConfigParser,
 )
 from models.ConfigBuilder import ConfigBuilder
+from models.exchange.Granularity import Granularity
 from models.helper.LogHelper import Logger
 
 
@@ -31,7 +32,7 @@ class BotConfig:
 
         self.configbuilder = False
 
-        self.granularity = 3600
+        self.granularity = Granularity.ONE_HOUR
         self.base_currency = "BTC"
         self.quote_currency = "GBP"
         self.is_live = 0
@@ -50,7 +51,7 @@ class BotConfig:
         self.sell_at_loss = 1
         self.smart_switch = 1
         self.telegram = False
-        self.telegramdatafolder = "."
+        self.telegramdatafolder = ""
         self.buypercent = 100
         self.sellpercent = 100
         self.last_action = None
@@ -81,12 +82,10 @@ class BotConfig:
         self.disabletracker = False
         self.enableml = False
         self.websocket = False
-        self.enableexitaftersell = False
 
         self.enableinsufficientfundslogging = False
         self.insufficientfunds = False
         self.enabletelegrambotcontrol = False
-        self.enableimmediatebuy = False
 
         self.filelog = True
         self.logfile = (
@@ -183,12 +182,9 @@ class BotConfig:
             ):
                 telegram = self.config["telegram"]
                 self._chat_client = Telegram(telegram["token"], telegram["client_id"])
-                if "datafolder" in telegram:
+                if "datafolder" in self.config["telegram"]:
                     self.telegramdatafolder = telegram["datafolder"]
                 self.telegram = True
-
-            if "scanner" in self.config:
-                self.enableexitaftersell = self.config["scanner"]["enableexitaftersell"] if "enableexitaftersell" in self.config["scanner"] else False
 
             if "logger" in self.config:
                 loggerConfigParser(self, self.config["logger"])
