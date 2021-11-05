@@ -1,6 +1,6 @@
 {
     "coinbasepro" : {
-        "quote_currency": ["GBP"]
+        "quote_currency": ["GBP", "USD"]
     },
     "binance" : {
         "quote_currency": ["USDT"]

@@ -1,4 +1,5 @@
 import argparse
+import fileinput
 import json
 import os
 import re
@@ -8,7 +9,6 @@ import yaml
 from yaml.constructor import ConstructorError
 from yaml.scanner import ScannerError
 
-from models.ConfigBuilder import ConfigBuilder
 from models.chat import Telegram
 from models.config import (
     binanceConfigParser,
@@ -17,7 +17,7 @@ from models.config import (
     dummyConfigParser,
     loggerConfigParser,
 )
-from models.exchange.ExchangesEnum import Exchange
+from models.ConfigBuilder import ConfigBuilder
 from models.helper.LogHelper import Logger
 
 
@@ -50,8 +50,7 @@ class BotConfig:
         self.sell_at_loss = 1
         self.smart_switch = 1
         self.telegram = False
-        self.telegramdatafolder = ""
-        self.logbuysellinjson = False
+        self.telegramdatafolder = "."
         self.buypercent = 100
         self.sellpercent = 100
         self.last_action = None
@@ -82,10 +81,12 @@ class BotConfig:
         self.disabletracker = False
         self.enableml = False
         self.websocket = False
+        self.enableexitaftersell = False
 
         self.enableinsufficientfundslogging = False
         self.insufficientfunds = False
         self.enabletelegrambotcontrol = False
+        self.enableimmediatebuy = False
 
         self.filelog = True
         self.logfile = (
@@ -162,17 +163,17 @@ class BotConfig:
         ) = self._set_default_api_info(self.exchange)
 
         if self.config_provided:
-            if self.exchange == Exchange.COINBASEPRO and self.exchange.value in self.config:
-                coinbaseProConfigParser(self, self.config[self.exchange.value], self.cli_args)
+            if self.exchange == "coinbasepro" and "coinbasepro" in self.config:
+                coinbaseProConfigParser(self, self.config["coinbasepro"], self.cli_args)
 
-            elif self.exchange == Exchange.BINANCE and self.exchange.value in self.config:
-                binanceConfigParser(self, self.config[self.exchange.value], self.cli_args)
+            elif self.exchange == "binance" and "binance" in self.config:
+                binanceConfigParser(self, self.config["binance"], self.cli_args)
 
-            elif self.exchange == Exchange.KUCOIN and self.exchange.value in self.config:
-                kucoinConfigParser(self, self.config[self.exchange.value], self.cli_args)
+            elif self.exchange == "kucoin" and "kucoin" in self.config:
+                kucoinConfigParser(self, self.config["kucoin"], self.cli_args)
 
-            elif self.exchange == Exchange.DUMMY and self.exchange.value in self.config:
-                dummyConfigParser(self, self.config[self.exchange.value], self.cli_args)
+            elif self.exchange == "dummy" and "dummy" in self.config:
+                dummyConfigParser(self, self.config["dummy"], self.cli_args)
 
             if (
                 not self.disabletelegram
@@ -182,9 +183,12 @@ class BotConfig:
             ):
                 telegram = self.config["telegram"]
                 self._chat_client = Telegram(telegram["token"], telegram["client_id"])
-                if "datafolder" in self.config["telegram"]:
+                if "datafolder" in telegram:
                     self.telegramdatafolder = telegram["datafolder"]
                 self.telegram = True
+
+            if "scanner" in self.config:
+                self.enableexitaftersell = self.config["scanner"]["enableexitaftersell"] if "enableexitaftersell" in self.config["scanner"] else False
 
             if "logger" in self.config:
                 loggerConfigParser(self, self.config["logger"])
@@ -195,9 +199,9 @@ class BotConfig:
                 self.logfile == "/dev/null"
 
         else:
-            if self.exchange == Exchange.BINANCE:
+            if self.exchange == "binance":
                 binanceConfigParser(self, None, self.cli_args)
-            elif self.exchange == Exchange.KUCOIN:
+            elif self.exchange == "kucoin":
                 kucoinConfigParser(self, None, self.cli_args)
             else:
                 coinbaseProConfigParser(self, None, self.cli_args)
@@ -214,23 +218,32 @@ class BotConfig:
             consoleloglevel=self.consoleloglevel,
         )
 
-    def _set_exchange(self, exchange: str = None) -> Exchange:
+    def _set_exchange(self, exchange: str = None) -> str:
+        valid_exchanges = ["coinbasepro", "binance", "kucoin", "dummy"]
 
         if self.cli_args["exchange"] is not None:
-            exchange = Exchange(self.cli_args["exchange"])
+            exchange = self.cli_args["exchange"]
+
+        if exchange and exchange in valid_exchanges:
+            return exchange
 
         if not exchange:
-            if (Exchange.COINBASEPRO.value or "api_pass") in self.config:
-                exchange = Exchange.COINBASEPRO
-            elif Exchange.BINANCE.value in self.config:
-                exchange = Exchange.BINANCE
-            elif Exchange.KUCOIN.value in self.config:
-                exchange = Exchange.KUCOIN
+            if ("coinbasepro" or "api_pass") in self.config:
+                exchange = "coinbasepro"
+            elif "binance" in self.config:
+                exchange = "binance"
+            elif "kucoin" in self.config:
+                exchange = "kucoin"
             else:
-                exchange = Exchange.DUMMY
+                exchange = "dummy"
+
+        if exchange not in valid_exchanges:
+            raise TypeError(
+                f"Invalid exchange: {exchange}. Valid choices: {valid_exchanges}"
+            )
         return exchange
 
-    def _set_default_api_info(self, exchange: Exchange = Exchange.DUMMY) -> tuple:
+    def _set_default_api_info(self, exchange: str = "dummy") -> tuple:
         conf = {
             "binance": {
                 "api_url": "https://api.binance.com",
@@ -262,11 +275,11 @@ class BotConfig:
             },
         }
         return (
-            conf[exchange.value]["api_url"],
-            conf[exchange.value]["api_key"],
-            conf[exchange.value]["api_secret"],
-            conf[exchange.value]["api_passphrase"],
-            conf[exchange.value]["market"],
+            conf[exchange]["api_url"],
+            conf[exchange]["api_key"],
+            conf[exchange]["api_secret"],
+            conf[exchange]["api_passphrase"],
+            conf[exchange]["market"],
         )
 
     def getVersionFromREADME(self) -> str:
@@ -508,7 +521,6 @@ class BotConfig:
             help="Enable Machine Learning E.g. seasonal ARIMA model for predictions",
         )
         parser.add_argument("--websocket", action="store_true", help="Enable websocket")
-        parser.add_argument("--logbuysellinjson", action="store_true", help="Enable logging orders in json format")
 
         # pylint: disable=unused-variable
         args, unknown = parser.parse_known_args()
