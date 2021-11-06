@@ -50,7 +50,7 @@ class BotConfig:
         self.sell_at_loss = 1
         self.smart_switch = 1
         self.telegram = False
-        self.telegramdatafolder = "."
+        self.telegramdatafolder = ""
         self.buypercent = 100
         self.sellpercent = 100
         self.last_action = None
@@ -81,12 +81,10 @@ class BotConfig:
         self.disabletracker = False
         self.enableml = False
         self.websocket = False
-        self.enableexitaftersell = False
 
         self.enableinsufficientfundslogging = False
         self.insufficientfunds = False
         self.enabletelegrambotcontrol = False
-        self.enableimmediatebuy = False
 
         self.filelog = True
         self.logfile = (
@@ -118,33 +116,11 @@ class BotConfig:
             self.config_file = self.cli_args["config"]
             self.config_provided = True
 
-        self.exchange = self._set_exchange(kwargs["exchange"])
-
-        # set defaults
-        (
-            self.api_url,
-            self.api_key,
-            self.api_secret,
-            self.api_passphrase,
-            self.market,
-        ) = self._set_default_api_info(self.exchange)
-        
-        self.read_config(kwargs["exchange"])
-
-        Logger.configure(
-            filelog=self.filelog,
-            logfile=self.logfile,
-            fileloglevel=self.fileloglevel,
-            consolelog=self.consolelog,
-            consoleloglevel=self.consoleloglevel,
-        )
-
-# read and set config from file
-    def read_config(self, exchange):
+        # read and set config from file
         if os.path.isfile(self.config_file):
             self.config_provided = True
             try:
-                with open(self.config_file, "r", encoding="utf8") as stream:
+                with open(self.config_file, "r") as stream:
                     try:
                         self.config = yaml.safe_load(stream)
                     except:
@@ -172,10 +148,10 @@ class BotConfig:
             except:
                 raise
 
-            # set exchange platform
-        self.exchange = self._set_exchange(exchange)
+        # set exchange platform
+        self.exchange = self._set_exchange(kwargs["exchange"])
 
-            # set defaults
+        # set defaults
         (
             self.api_url,
             self.api_key,
@@ -205,12 +181,9 @@ class BotConfig:
             ):
                 telegram = self.config["telegram"]
                 self._chat_client = Telegram(telegram["token"], telegram["client_id"])
-                if "datafolder" in telegram:
+                if "datafolder" in self.config["telegram"]:
                     self.telegramdatafolder = telegram["datafolder"]
                 self.telegram = True
-
-            if "scanner" in self.config:
-                self.enableexitaftersell = self.config["scanner"]["enableexitaftersell"] if "enableexitaftersell" in self.config["scanner"] else False
 
             if "logger" in self.config:
                 loggerConfigParser(self, self.config["logger"])
@@ -232,6 +205,13 @@ class BotConfig:
             self.fileloglevel = "NOTSET"
             self.logfile == "/dev/null"
 
+        Logger.configure(
+            filelog=self.filelog,
+            logfile=self.logfile,
+            fileloglevel=self.fileloglevel,
+            consolelog=self.consolelog,
+            consoleloglevel=self.consoleloglevel,
+        )
 
     def _set_exchange(self, exchange: str = None) -> str:
         valid_exchanges = ["coinbasepro", "binance", "kucoin", "dummy"]
