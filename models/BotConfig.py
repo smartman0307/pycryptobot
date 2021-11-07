@@ -1,5 +1,4 @@
 import argparse
-import fileinput
 import json
 import os
 import re
@@ -9,6 +8,7 @@ import yaml
 from yaml.constructor import ConstructorError
 from yaml.scanner import ScannerError
 
+from models.ConfigBuilder import ConfigBuilder
 from models.chat import Telegram
 from models.config import (
     binanceConfigParser,
@@ -18,7 +18,9 @@ from models.config import (
     loggerConfigParser,
 )
 from models.ConfigBuilder import ConfigBuilder
+from models.exchange.Granularity import Granularity
 from models.helper.LogHelper import Logger
+from models.exchange.ExchangesEnum import Exchange
 
 
 class BotConfig:
@@ -31,7 +33,7 @@ class BotConfig:
 
         self.configbuilder = False
 
-        self.granularity = 3600
+        self.granularity = Granularity.ONE_HOUR
         self.base_currency = "BTC"
         self.quote_currency = "GBP"
         self.is_live = 0
@@ -51,6 +53,7 @@ class BotConfig:
         self.smart_switch = 1
         self.telegram = False
         self.telegramdatafolder = ""
+        self.logbuysellinjson = False
         self.buypercent = 100
         self.sellpercent = 100
         self.last_action = None
@@ -85,6 +88,8 @@ class BotConfig:
         self.enableinsufficientfundslogging = False
         self.insufficientfunds = False
         self.enabletelegrambotcontrol = False
+        self.telegramtradesonly = False
+        self.disabletelegramerrormsgs = False
 
         self.filelog = True
         self.logfile = (
@@ -161,16 +166,16 @@ class BotConfig:
         ) = self._set_default_api_info(self.exchange)
 
         if self.config_provided:
-            if self.exchange == "coinbasepro" and "coinbasepro" in self.config:
+            if self.exchange == Exchange.COINBASEPRO.value and "coinbasepro" in self.config:
                 coinbaseProConfigParser(self, self.config["coinbasepro"], self.cli_args)
 
-            elif self.exchange == "binance" and "binance" in self.config:
+            elif self.exchange == Exchange.BINANCE.value and "binance" in self.config:
                 binanceConfigParser(self, self.config["binance"], self.cli_args)
 
-            elif self.exchange == "kucoin" and "kucoin" in self.config:
+            elif self.exchange == Exchange.KUCOIN.value and "kucoin" in self.config:
                 kucoinConfigParser(self, self.config["kucoin"], self.cli_args)
 
-            elif self.exchange == "dummy" and "dummy" in self.config:
+            elif self.exchange == Exchange.DUMMY.value and "dummy" in self.config:
                 dummyConfigParser(self, self.config["dummy"], self.cli_args)
 
             if (
@@ -194,9 +199,9 @@ class BotConfig:
                 self.logfile == "/dev/null"
 
         else:
-            if self.exchange == "binance":
+            if self.exchange == Exchange.BINANCE.value:
                 binanceConfigParser(self, None, self.cli_args)
-            elif self.exchange == "kucoin":
+            elif self.exchange == Exchange.KUCOIN.value:
                 kucoinConfigParser(self, None, self.cli_args)
             else:
                 coinbaseProConfigParser(self, None, self.cli_args)
@@ -450,6 +455,16 @@ class BotConfig:
             action="store_true",
             help="show simulation result only",
         )
+        parser.add_argument(
+            "--telegramtradesonly",
+            action="store_true",
+            help="Toggle Telegram trades only output"
+        )
+        parser.add_argument(
+            "--disabletelegramerrormsgs",
+            action="store_true",
+            help="Disable Telegram error message output"
+        )
 
         # disable defaults
         parser.add_argument(
@@ -516,6 +531,7 @@ class BotConfig:
             help="Enable Machine Learning E.g. seasonal ARIMA model for predictions",
         )
         parser.add_argument("--websocket", action="store_true", help="Enable websocket")
+        parser.add_argument("--logbuysellinjson", action="store_true", help="Enable logging orders in json format")
 
         # pylint: disable=unused-variable
         args, unknown = parser.parse_known_args()
