@@ -39,7 +39,6 @@ Stats(app, account).show()
 technical_analysis = None
 state = AppState(app, account)
 state.initLastAction()
-websocket = None
 
 telegram_bot = TelegramBotHelper(app)
 
@@ -59,7 +58,7 @@ def executeJob(
     _state: AppState = None,
     _technical_analysis=None,
     _websocket=None,
-    trading_data=pd.DataFrame()
+    trading_data=pd.DataFrame(),
 ):
     """Trading bot job which runs at a scheduled interval"""
 
@@ -70,30 +69,32 @@ def executeJob(
 
     # This is used by the telegram bot
     # If it not enabled in config while will always be False
-    controlstatus = telegram_bot.checkbotcontrolstatus()
-    while controlstatus == "pause" or controlstatus == "paused":
-        if controlstatus == "pause":
-            print(str(datetime.now()).format() + " - Bot is paused")
-            _app.notifyTelegram(f"{_app.getMarket()} bot is paused")
-            telegram_bot.updatebotstatus("paused")
-            if _app.enableWebsocket():
-                Logger.info("Stopping _websocket...")
-                _websocket.close()
-
-        time.sleep(30)
+    if not app.isSimulation():
         controlstatus = telegram_bot.checkbotcontrolstatus()
+        while controlstatus == "pause" or controlstatus == "paused":
+            if controlstatus == "pause":
+                print(str(datetime.now()).format() + " - Bot is paused")
+                _app.notifyTelegram(f"{_app.getMarket()} bot is paused")
+                telegram_bot.updatebotstatus("paused")
+                if _app.enableWebsocket():
+                    Logger.info("Stopping _websocket...")
+                    _websocket.close()
 
-    if controlstatus == "start":
-        print(str(datetime.now()).format() + " - Bot has restarted")
-        _app.notifyTelegram(f"{_app.getMarket()} bot has restarted")
-        telegram_bot.updatebotstatus("active")
-        if _app.enableWebsocket():
-            Logger.info("Starting _websocket...")
-            _websocket.start()
+            time.sleep(30)
+            controlstatus = telegram_bot.checkbotcontrolstatus()
 
-    if controlstatus == "exit":
-        _app.notifyTelegram(f"{_app.getMarket()} bot is stopping")
-        sys.exit(0)
+        if controlstatus == "start":
+            print(str(datetime.now()).format() + " - Bot has restarted")
+            _app.notifyTelegram(f"{_app.getMarket()} bot has restarted")
+            telegram_bot.updatebotstatus("active")
+            _app.read_config(_app.getExchange())
+            if _app.enableWebsocket():
+                Logger.info("Starting _websocket...")
+                _websocket.start()
+
+        if controlstatus == "exit":
+            _app.notifyTelegram(f"{_app.getMarket()} bot is stopping")
+            sys.exit(0)
 
     # reset _websocket every 23 hours if applicable
     if _app.enableWebsocket() and not _app.isSimulation():
@@ -104,7 +105,9 @@ def executeJob(
             Logger.info("Starting _websocket...")
             _websocket.start()
             Logger.info("Restarting job in 30 seconds...")
-            s.enter(30, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
+            s.enter(
+                30, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket)
+            )
 
     # increment _state.iterations
     _state.iterations = _state.iterations + 1
@@ -237,7 +240,9 @@ def executeJob(
         and _app.is1hEMA1226Bull(current_sim_date, _websocket) is True
         and _app.is6hEMA1226Bull(current_sim_date, _websocket) is True
     ):
-        if not _app.isSimulation() or (_app.isSimulation() and not _app.simResultOnly()):
+        if not _app.isSimulation() or (
+            _app.isSimulation() and not _app.simResultOnly()
+        ):
             Logger.info(
                 "*** smart switch from granularity 3600 (1 hour) to 900 (15 min) ***"
             )
@@ -245,11 +250,10 @@ def executeJob(
         if _app.isSimulation():
             _app.sim_smartswitch = True
 
-        if not _app.telegramTradesOnly():
-            _app.notifyTelegram(
-                _app.getMarket()
-                + " smart switch from granularity 3600 (1 hour) to 900 (15 min)"
-            )
+        _app.notifyTelegram(
+            _app.getMarket()
+            + " smart switch from granularity 3600 (1 hour) to 900 (15 min)"
+        )
 
         _app.setGranularity(Granularity.FIFTEEN_MINUTES)
         list(map(s.cancel, s.queue))
@@ -263,7 +267,9 @@ def executeJob(
         and _app.is1hEMA1226Bull(current_sim_date, _websocket) is False
         and _app.is6hEMA1226Bull(current_sim_date, _websocket) is False
     ):
-        if not _app.isSimulation() or (_app.isSimulation() and not _app.simResultOnly()):
+        if not _app.isSimulation() or (
+            _app.isSimulation() and not _app.simResultOnly()
+        ):
             Logger.info(
                 "*** smart switch from granularity 900 (15 min) to 3600 (1 hour) ***"
             )
@@ -271,10 +277,9 @@ def executeJob(
         if _app.isSimulation():
             _app.sim_smartswitch = True
 
-        if not _app.telegramTradesOnly():
-            _app.notifyTelegram(
-                f"{_app.getMarket()} smart switch from granularity 900 (15 min) to 3600 (1 hour)"
-            )
+        _app.notifyTelegram(
+            f"{_app.getMarket()} smart switch from granularity 900 (15 min) to 3600 (1 hour)"
+        )
 
         _app.setGranularity(Granularity.ONE_HOUR)
         list(map(s.cancel, s.queue))
@@ -285,14 +290,21 @@ def executeJob(
             # data frame should have 250 rows, if not retry
             Logger.error(f"error: data frame length is < 250 ({str(len(df))})")
             list(map(s.cancel, s.queue))
-            s.enter(300, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
+            s.enter(
+                300, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket)
+            )
     else:
         if len(df) < 300:
             if not _app.isSimulation():
                 # data frame should have 300 rows, if not retry
                 Logger.error(f"error: data frame length is < 300 ({str(len(df))})")
                 list(map(s.cancel, s.queue))
-                s.enter(300, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
+                s.enter(
+                    300,
+                    1,
+                    executeJob,
+                    (sc, _app, _state, _technical_analysis, _websocket),
+                )
 
     if len(df_last) > 0:
         now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
@@ -310,10 +322,9 @@ def executeJob(
                 Logger.info(
                     f"last_action change detected from {last_action_current} to {_state.last_action}"
                 )
-                if not _app.telegramTradesOnly():
-                    _app.notifyTelegram(
-                        f"{_app.getMarket} last_action change detected from {last_action_current} to {_state.last_action}"
-                    )
+                _app.notifyTelegram(
+                    f"{_app.getMarket} last_action change detected from {last_action_current} to {_state.last_action}"
+                )
 
         if not _app.isSimulation():
             ticker = _app.getTicker(_app.getMarket(), _websocket)
@@ -373,7 +384,6 @@ def executeJob(
             telegram_bot.addindicators("MACD", macdgtsignal or macdgtsignalco)
         if not app.disableBuyOBV():
             telegram_bot.addindicators("OBV", float(obv_pc) > 0)
-
 
         if _app.isSimulation():
             # Reset the Strategy so that the last record is the current sim date
@@ -471,6 +481,10 @@ def executeJob(
             if strategy.isWaitTrigger(_app, margin, goldencross):
                 _state.action = "WAIT"
                 immediate_action = False
+
+        if app.enableImmediateBuy():
+            if _state.action == "BUY":
+                immediate_action = True
 
         if _state.action == "WAIT":
             manual_buy_sell = telegram_bot.checkmanualbuysell()
@@ -1026,15 +1040,11 @@ def executeJob(
                 # if live
                 if _app.isLive():
                     if not _app.insufficientfunds:
-                        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
                         _app.notifyTelegram(
                             _app.getMarket()
                             + " ("
                             + _app.printGranularity()
-                            + ") - "
-                            + now
-                            + "\n"
-                            + "BUY at "
+                            + ") BUY at "
                             + price_text
                         )
 
@@ -1203,10 +1213,7 @@ def executeJob(
                         _app.getMarket()
                         + " ("
                         + _app.printGranularity()
-                        + ") - "
-                        + now
-                        + "\n"
-                        + "SELL at "
+                        + ") SELL at "
                         + price_text
                         + " (margin: "
                         + margin_text
@@ -1287,6 +1294,10 @@ def executeJob(
                         price_text,
                         margin_text,
                     )
+
+                    if _app.enableexitaftersell:
+                        sys.exit(0)
+
                 # if not live
                 else:
                     margin, profit, sell_fee = calculate_margin(
@@ -1308,9 +1319,7 @@ def executeJob(
                         _app.getMarket()
                         + " ("
                         + _app.printGranularity()
-                        + ") "
-                        + str(current_sim_date)
-                        + "\n - TEST SELL at "
+                        + ") TEST SELL at "
                         + price_text
                         + " (margin: "
                         + margin_text
@@ -1386,6 +1395,11 @@ def executeJob(
                         },
                         ignore_index=True,
                     )
+                    # if _app.enableexitaftersell:
+                    #     time.sleep(900)
+                        # Logger.info("Closing after sale..")
+                        # sys.exit(0)
+
                 if _app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(_technical_analysis)
                     ts = datetime.now().timestamp()
@@ -1414,19 +1428,15 @@ def executeJob(
             if not _app.isLive() and _state.iterations == len(df):
                 simulation = {
                     "config": {},
-                    "data" : {
-                        'open_buy_excluded': 1,
-                        'buy_count': 0,
-                        'sell_count': 0,
-                        'first_trade': {
-                            'size': 0
-                        },
-                        'last_trade': {
-                            'size': 0
-                        },
-                        'margin': 0.0
+                    "data": {
+                        "open_buy_excluded": 1,
+                        "buy_count": 0,
+                        "sell_count": 0,
+                        "first_trade": {"size": 0},
+                        "last_trade": {"size": 0},
+                        "margin": 0.0,
                     },
-                    "exchange": _app.getExchange()
+                    "exchange": _app.getExchange(),
                 }
 
                 if _app.getConfig() != "":
@@ -1540,7 +1550,6 @@ def executeJob(
 
                 _app.notifyTelegram(
                     f"{_state.app.base_currency}{_state.app.quote_currency}\nSimulation Summary\n"
-                    + f"   Market: {state.app.base_currency}-{state.app.quote_currency}\n"
                     + f"   Buy Count: {_state.buy_count}\n"
                     + f"   Sell Count: {_state.sell_count}\n"
                     + f"   First Buy: {_state.first_buy_size}\n"
@@ -1590,7 +1599,9 @@ def executeJob(
                             4,
                         )
                         simulation["data"]["all_trades"] = {}
-                        simulation["data"]["all_trades"]["quote_currency"] = _app.quote_currency
+                        simulation["data"]["all_trades"][
+                            "quote_currency"
+                        ] = _app.quote_currency
                         simulation["data"]["all_trades"]["value_buys"] = float(
                             _truncate(_state.buy_tracker, 2)
                         )
@@ -1635,7 +1646,12 @@ def executeJob(
                     f'{now} | {_app.getMarket()}{bullbeartext} | {_app.printGranularity()} | Current Price: {str(price)} is {str(round(((price-df["close"].max()) / df["close"].max())*100, 2))}% away from DF HIGH',
                     round(price, 4),
                     str(round(df["close"].max(), 4)),
-                    str(round(((price-df["close"].max()) / df["close"].max())*100, 2)) + '%'
+                    str(
+                        round(
+                            ((price - df["close"].max()) / df["close"].max()) * 100, 2
+                        )
+                    )
+                    + "%",
                 )
 
             if _state.last_action == "BUY":
@@ -1661,11 +1677,21 @@ def executeJob(
                 if _app.simuluationSpeed() in ["fast", "fast-sample"]:
                     # fast processing
                     list(map(s.cancel, s.queue))
-                    s.enter(0, 1, executeJob, (sc, _app, _state, _technical_analysis, None, df))
+                    s.enter(
+                        0,
+                        1,
+                        executeJob,
+                        (sc, _app, _state, _technical_analysis, None, df),
+                    )
                 else:
                     # slow processing
                     list(map(s.cancel, s.queue))
-                    s.enter(1, 1, executeJob, (sc, _app, _state, _technical_analysis, None, df))
+                    s.enter(
+                        1,
+                        1,
+                        executeJob,
+                        (sc, _app, _state, _technical_analysis, None, df),
+                    )
 
         else:
             list(map(s.cancel, s.queue))
@@ -1682,14 +1708,29 @@ def executeJob(
                 )
             ):
                 # poll every 5 seconds (_websocket)
-                s.enter(5, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
+                s.enter(
+                    5,
+                    1,
+                    executeJob,
+                    (sc, _app, _state, _technical_analysis, _websocket),
+                )
             else:
                 if _app.enableWebsocket() and not _app.isSimulation():
                     # poll every 15 seconds (waiting for _websocket)
-                    s.enter(15, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
+                    s.enter(
+                        15,
+                        1,
+                        executeJob,
+                        (sc, _app, _state, _technical_analysis, _websocket),
+                    )
                 else:
                     # poll every 1 minute (no _websocket)
-                    s.enter(60, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
+                    s.enter(
+                        60,
+                        1,
+                        executeJob,
+                        (sc, _app, _state, _technical_analysis, _websocket),
+                    )
 
 
 def main():
@@ -1711,8 +1752,8 @@ def main():
         elif app.getExchange() == Exchange.KUCOIN:
             message += "Kucoin bot"
 
-        smartSwitchStatus = "enabled" if app.getSmartSwitch() else "disabled"
-        message += f" for {app.getMarket()} using granularity {app.printGranularity()}. Smartswitch {smartSwitchStatus}"
+        smartswitchstatus = "enabled" if app.getSmartSwitch() else "disabled"
+        message += f" for {app.getMarket()} using granularity {app.printGranularity()}. Smartswitch {smartswitchstatus}"
 
         app.notifyTelegram(message)
 
@@ -1738,10 +1779,9 @@ def main():
                 time.sleep(30)
                 Logger.critical(f"Restarting application after exception: {repr(e)}")
 
-                if not app.disableTelegramErrorMsgs():
-                    app.notifyTelegram(
-                        f"Auto restarting bot for {app.getMarket()} after exception: {repr(e)}"
-                    )
+                app.notifyTelegram(
+                    f"Auto restarting bot for {app.getMarket()} after exception: {repr(e)}"
+                )
 
                 # Cancel the events queue
                 map(s.cancel, s.queue)
@@ -1773,8 +1813,7 @@ def main():
             os._exit(0)
     except (BaseException, Exception) as e:  # pylint: disable=broad-except
         # catch all not managed exceptions and send a Telegram message if configured
-        if not app.disableTelegramErrorMsgs():
-            app.notifyTelegram(f"Bot for {app.getMarket()} got an exception: {repr(e)}")
+        app.notifyTelegram(f"Bot for {app.getMarket()} got an exception: {repr(e)}")
         telegram_bot.removeactivebot()
         Logger.critical(repr(e))
         # pylint: disable=protected-access
