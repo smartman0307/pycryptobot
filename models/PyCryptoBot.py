@@ -43,11 +43,11 @@ def truncate(f: Union[int, float], n: Union[int, float]) -> str:
 
 
 class PyCryptoBot(BotConfig):
-    def __init__(self, config_file: str = None, exchange: Exchange = Exchange.DUMMY):
+    def __init__(self, config_file: str = None, exchange: Exchange = None):
         self.config_file = config_file or "config.json"
         self.exchange = exchange
         super(PyCryptoBot, self).__init__(
-            filename=self.config_file, exchange=self.exchange.value
+            filename=self.config_file, exchange=self.exchange
         )
 
     takerfee = 0.0
@@ -179,7 +179,7 @@ class PyCryptoBot(BotConfig):
             return str(self.granularity.to_integer)
         if self.exchange == Exchange.DUMMY:
             return str(self.granularity.to_integer)
-        raise TypeError(f'Unknown exchange "{self.exchange.name}"')
+        raise TypeError(f'Unknown exchange "{self.exchange.value}"')
 
     def getBuyPercent(self):
         try:
@@ -778,8 +778,11 @@ class PyCryptoBot(BotConfig):
     def enableTelegramBotControl(self) -> bool:
         return self.enabletelegrambotcontrol
 
-    def enableImmediateBuy(self) -> bool:
-        return self.enableimmediatebuy
+    def telegramTradesOnly(self) -> bool:
+        return self.telegramtradesonly
+
+    def disableTelegramErrorMsgs(self) -> bool:
+        return self.disabletelegramerrormsgs
 
     def enableML(self) -> bool:
         return self.enableml
@@ -1329,6 +1332,19 @@ class PyCryptoBot(BotConfig):
             str(not self.disableProfitbankReversal()) + "  --disableprofitbankreversal",
         )
         text_box.line("Telegram", str(not self.disabletelegram) + "  --disabletelegram")
+
+        if not self.disabletelegram:
+            text_box.line(
+                "Telegram trades only",
+                str(self.telegramTradesOnly()) + " --telegramtradesonly",
+            )
+
+        if not self.disabletelegram:
+            text_box.line(
+                "Telegram error msgs",
+                str(not self.disableTelegramErrorMsgs()) + " --disabletelegramerrormsgs",
+            )
+
         text_box.line("Log", str(not self.disableLog()) + "  --disablelog")
         text_box.line("Tracker", str(not self.disableTracker()) + "  --disabletracker")
         text_box.line("Auto restart Bot", str(self.autoRestart()) + "  --autorestart")
