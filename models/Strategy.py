@@ -27,7 +27,7 @@ class Strategy:
         self._df_last = app.getInterval(df, iterations)
 
     def isBuySignal(
-        self, app, price, now: datetime = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+        self, price, now: datetime = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
     ) -> bool:
         # required technical indicators or candle sticks for buy signal strategy
         required_indicators = [
@@ -51,34 +51,33 @@ class Strategy:
                 > (self._df["close"].max() * (1 - self.app.noBuyNearHighPcnt() / 100))
             )
         ):
-            if not app.isSimulation() or (app.isSimulation() and not app.simResultOnly()):
-                log_text = (
-                    str(now)
-                    + " | "
-                    + self.app.getMarket()
-                    + " | "
-                    + self.app.printGranularity()
-                    + " | Ignoring Buy Signal (price "
-                    + str(price)
-                    + " within "
-                    + str(self.app.noBuyNearHighPcnt())
-                    + "% of high "
-                    + str(self._df["close"].max())
-                    + ")"
-                )
-                Logger.warning(log_text)
+            log_text = (
+                str(now)
+                + " | "
+                + self.app.getMarket()
+                + " | "
+                + self.app.printGranularity()
+                + " | Ignoring Buy Signal (price "
+                + str(price)
+                + " within "
+                + str(self.app.noBuyNearHighPcnt())
+                + "% of high "
+                + str(self._df["close"].max())
+                + ")"
+            )
+            Logger.warning(log_text)
 
             return False
 
         ## if last_action was set to "WAIT" due to an API problem, do not buy
-        if self.state.last_action == "WAIT":
-            log_text = f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | last_action is WAIT, do not buy yet"
-            Logger.warning(log_text)
+        if ( self.state.last_action == "WAIT"):
             return False
+            log_text = (f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | last_action is WAIT, do not buy yet")
+            Logger.warning(log_text)
 
         # if EMA, MACD are disabled, do not buy
         if self.app.disableBuyEMA() and self.app.disableBuyMACD():
-            log_text = f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | EMA, MACD indicators are disabled"
+            log_text = (f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | EMA, MACD indicators are disabled")
             Logger.warning(log_text)
 
             return False
@@ -175,7 +174,6 @@ class Strategy:
 
     def isSellTrigger(
         self,
-        app,
         price: float = 0.0,
         price_exit: float = 0.0,
         margin: float = 0.0,
@@ -185,7 +183,7 @@ class Strategy:
     ) -> bool:
         # set to true for verbose debugging
         debug = False
-
+        
         if debug:
             Logger.warning("\n*** isSellTrigger ***\n")
             Logger.warning("-- ignoring sell signal --")
@@ -193,17 +191,16 @@ class Strategy:
             Logger.warning(f"margin >= self.app.nosellminpcnt (margin: {margin})")
             Logger.warning(f"margin <= self.app.nosellmaxpcnt (nosellmaxpcnt: {self.app.nosellmaxpcnt})")
             Logger.warning("\n")
-
+        
         if (
             ((self.app.nosellminpcnt is not None)
                 and (margin >= self.app.nosellminpcnt))
                 and ((self.app.nosellmaxpcnt is not None)
                 and (margin <= self.app.nosellmaxpcnt)
             )):
-            if not app.isSimulation() or (app.isSimulation() and not app.simResultOnly()):
                 log_text = "! Ignore Sell Signal (Within No-Sell Bounds)"
                 Logger.warning(log_text)
-            return False
+                return False
 
         if debug:
             Logger.warning("\n*** isSellTrigger ***\n")
@@ -244,11 +241,8 @@ class Strategy:
             and change_pcnt_high < self.app.trailingStopLoss()
             and margin > self.app.trailingStopLossTrigger()
             and (self.app.allowSellAtLoss() or margin > 0)):
-
             log_text = (f"! Trailing Stop Loss Triggered (< {str(self.app.trailingStopLoss())}%)")
-            if not app.isSimulation() or (app.isSimulation() and not app.simResultOnly()):
-                Logger.warning(log_text)
-
+            Logger.warning(log_text)
             self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
             return True
 
@@ -300,8 +294,7 @@ class Strategy:
             log_text = (
                 f"! Profit Bank Triggered (> {str(self.app.sellUpperPcnt())}%)"
             )
-            if not app.isSimulation() or (app.isSimulation() and not app.simResultOnly()):
-                Logger.warning(log_text)
+            Logger.warning(log_text)
             self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
             return True
 
@@ -326,15 +319,14 @@ class Strategy:
             and (self.app.allowSellAtLoss() or margin > 0)
         ):
             log_text = "! Profit Bank Triggered (Selling At Resistance)"
-            if not app.isSimulation() or (app.isSimulation() and not app.simResultOnly()):
-                Logger.warning(log_text)
+            Logger.warning(log_text)
             if not (not self.app.allowSellAtLoss() and margin <= 0):
                 self.app.notifyTelegram(f"{self.app.getMarket()} ({self.app.printGranularity()}) {log_text}")
             return True
 
         return False
 
-    def isWaitTrigger(self, app, margin: float = 0.0, goldencross: bool = False):
+    def isWaitTrigger(self, margin: float = 0.0, goldencross: bool = False):
         # set to true for verbose debugging
         debug = False
 
@@ -371,9 +363,8 @@ class Strategy:
             and not self.app.allowSellAtLoss()
             and margin <= 0
         ):
-            if not app.isSimulation() or (app.isSimulation() and not app.simResultOnly()):
-                log_text = "! Ignore Sell Signal (No Sell At Loss)"
-                Logger.warning(log_text)
+            log_text = "! Ignore Sell Signal (No Sell At Loss)"
+            Logger.warning(log_text)
             return True
 
         if debug and self.state.action == "SELL":
@@ -401,15 +392,14 @@ class Strategy:
                 and (margin <= self.app.nosellmaxpcnt)
             )
         ):
-            if not app.isSimulation() or (app.isSimulation() and not app.simResultOnly()):
-                log_text = "! Ignore Sell Signal (Within No-Sell Bounds)"
-                Logger.warning(log_text)
+            log_text = "! Ignore Sell Signal (Within No-Sell Bounds)"
+            Logger.warning(log_text)
             return True
 
         return False
 
-    def getAction(self, app, price, dt):
-        if self.isBuySignal(app, price, dt):
+    def getAction(self, price, dt):
+        if self.isBuySignal(price, dt):
             return "BUY"
         elif self.isSellSignal():
             return "SELL"
