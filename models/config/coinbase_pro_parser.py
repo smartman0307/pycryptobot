@@ -4,6 +4,7 @@ import json
 import os.path
 
 from .default_parser import isCurrencyValid, defaultConfigParse, merge_config_and_args
+from models.exchange.Granularity import Granularity
 
 def isMarketValid(market) -> bool:
     p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
@@ -48,15 +49,9 @@ def parser(app, coinbase_config, args={}):
                 fh.write(json.dumps(config_json, indent=4))
                 fh.close()
 
-        api_key_file = None
-        if 'api_key_file' in args and args['api_key_file'] is not None:
-            api_key_file = args['api_key_file']
-        elif 'api_key_file' in coinbase_config:
-            api_key_file = coinbase_config['api_key_file']
-
-        if api_key_file is not None:
+        if 'api_key_file' in coinbase_config:
             try :
-                with open( api_key_file, 'r') as f :
+                with open( coinbase_config['api_key_file'], 'r') as f :
                     key = f.readline().strip()
                     secret = f.readline().strip()
                     password = f.readline().strip()
@@ -126,14 +121,7 @@ def parser(app, coinbase_config, args={}):
         app.market = app.base_currency + '-' + app.quote_currency
 
     if 'granularity' in config and config['granularity'] is not None:
-        granularity = 0
         if isinstance(config['granularity'], str) and config['granularity'].isnumeric() is True:
-            granularity = int(config['granularity'])
+            app.granularity = Granularity.convert_to_enum(int(config['granularity']))
         elif isinstance(config['granularity'], int):
-            granularity = config['granularity']
-
-        if granularity in [60, 300, 900, 3600, 21600, 86400]:
-            app.granularity = granularity
-            app.smart_switch = 0
-        else:
-            raise ValueError('granularity supplied is not supported.')
+            app.granularity = Granularity.convert_to_enum(config['granularity'])
