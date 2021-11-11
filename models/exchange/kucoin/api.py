@@ -10,8 +10,10 @@ import base64
 import sys
 import pandas as pd
 from numpy import floor
-from datetime import datetime
+from datetime import datetime, timedelta
+from requests.auth import AuthBase
 from requests import Request
+from urllib3.exceptions import HeaderParsingError
 from models.helper.LogHelper import Logger
 
 MARGIN_ADJUSTMENT = 0.0025
@@ -40,18 +42,6 @@ class AuthAPIBase:
         if p.match(market):
             return True
         return False
-
-    def to_kucoin_granularity(self, granularity) -> str:
-        if isinstance(granularity, int):
-            return {60: "1min", 300: "5min", 900: "15min", 3600: "1hour", 21600: "6hour", 86400: "1day"} [
-                granularity
-            ]
-        else:
-            # return string if conversion is not required
-            if granularity in SUPPORTED_GRANULARITY:
-                return granularity
-            else:
-                raise ValueError(f"Invalid Kucoin granularity: {granularity}")
 
 
 class AuthAPI(AuthAPIBase):
@@ -793,7 +783,7 @@ class PublicAPI(AuthAPIBase):
         if not isinstance(iso8601end, str):
             raise TypeError("ISO8601 end integer as string required.")
 
-        trycnt, maxretry = (0, 3)
+        trycnt, maxretry = (0, 5)
         while trycnt <= maxretry:
             if trycnt == 0 or "data" not in resp:
                 if trycnt > 0:
@@ -896,7 +886,7 @@ class PublicAPI(AuthAPIBase):
 
         if "time" in resp["data"] and "price" in resp["data"]:
             # make sure the time format is correct, if not, pause and submit request again
-            trycnt, maxretry = (1, 3)
+            trycnt, maxretry = (1, 5)
             while trycnt <= maxretry:
                 resptime = ""
                 try:
