@@ -10,7 +10,7 @@ import sys
 import time
 import signal
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 
 from models.AppState import AppState
@@ -1113,8 +1113,6 @@ def executeJob(
                             Logger.info(
                                 f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance)}"
                             )
-
-                            state.last_api_call_datetime -= timedelta(seconds=60)
                         else:
                             Logger.warning("Unable to place order")
                     else:
@@ -1198,8 +1196,6 @@ def executeJob(
                         },
                         ignore_index=True,
                     )
-
-                    state.last_api_call_datetime -= timedelta(seconds=60)
 
                 if _app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(_technical_analysis)
@@ -1316,8 +1312,7 @@ def executeJob(
 
                     if _app.enableexitaftersell and _app.startmethod not in ("standard", "telegram"):
                         sys.exit(0)
-                        
-                    state.last_api_call_datetime -= timedelta(seconds=60)
+
                 # if not live
                 else:
                     margin, profit, sell_fee = calculate_margin(
@@ -1417,7 +1412,7 @@ def executeJob(
                         },
                         ignore_index=True,
                     )
-                    state.last_api_call_datetime -= timedelta(seconds=60)
+
                 if _app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(_technical_analysis)
                     ts = datetime.now().timestamp()
@@ -1825,10 +1820,7 @@ def main():
                 f"{str(datetime.now())} bot is closed via keyboard interrupt..."
             )
         try:
-            try:
-                telegram_bot.removeactivebot()
-            except:
-                pass
+            telegram_bot.removeactivebot()
             if app.enableWebsocket() and not app.isSimulation():
                 _websocket.close()
             sys.exit(0)
@@ -1839,10 +1831,7 @@ def main():
         # catch all not managed exceptions and send a Telegram message if configured
         if not app.disableTelegramErrorMsgs():
             app.notifyTelegram(f"Bot for {app.getMarket()} got an exception: {repr(e)}")
-            try:
-                telegram_bot.removeactivebot()
-            except:
-                pass
+        telegram_bot.removeactivebot()
         Logger.critical(repr(e))
         # pylint: disable=protected-access
         os._exit(0)
