@@ -10,7 +10,7 @@ import sys
 import time
 import signal
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 
 from models.AppState import AppState
@@ -28,6 +28,7 @@ from models.helper.TextBoxHelper import TextBox
 from models.exchange.ExchangesEnum import Exchange
 from models.exchange.binance import WebSocketClient as BWebSocketClient
 from models.exchange.coinbase_pro import WebSocketClient as CWebSocketClient
+from models.exchange.kucoin import WebSocketClient as KWebSocketClient
 from models.helper.TelegramBotHelper import TelegramBotHelper
 
 # minimal traceback
@@ -1055,14 +1056,18 @@ def executeJob(
                             text_box.center("*** Executing LIVE Buy Order ***")
                             text_box.singleLine()
 
+                        account.basebalance = 0.0
+                        account.quotebalance = 0.0
+
                         ac = account.getBalance()
+                        try:
+                            df_base = ac[ac["currency"] == app.getBaseCurrency()]["available"]
+                            account.basebalance = 0.0 if len(df_base) == 0 else float(df_base.values[0])
 
-                        df_base = ac[ac["currency"] == _app.getBaseCurrency()]["available"]
-                        account.basebalance = 0.0 if len(df_base) == 0 else float(df_base.values[0])
-
-                        df_quote = ac[ac["currency"] == _app.getQuoteCurrency()]["available"]
-                        account.quotebalance = 0.0 if len(df_quote) == 0 else float(df_quote.values[0])
-
+                            df_quote = ac[ac["currency"] == app.getQuoteCurrency()]["available"]
+                            account.quotebalance = 0.0 if len(df_quote) == 0 else float(df_quote.values[0])
+                        except:
+                            pass
                         # display balances
                         Logger.info(
                             f"{_app.getBaseCurrency()} balance before order: {str(account.basebalance)}"
@@ -1081,10 +1086,10 @@ def executeJob(
                         ):
                             _state.last_buy_size = _app.getBuyMaxSize()
 
-                        resp = _app.marketBuy(
-                            _app.getMarket(), _state.last_buy_size, _app.getBuyPercent()
-                        )
-                        if not resp.empty:
+                        try:
+                            resp = _app.marketBuy(
+                                _app.getMarket(), _state.last_buy_size, _app.getBuyPercent())
+                                
                             now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
                             _app.notifyTelegram(
                                 _app.getMarket()
@@ -1100,12 +1105,14 @@ def executeJob(
 
                             # display balances
                             ac = account.getBalance()
+                            try:
+                                df_base = ac[ac["currency"] == app.getBaseCurrency()]["available"]
+                                account.basebalance = 0.0 if len(df_base) == 0 else float(df_base.values[0])
 
-                            df_base = ac[ac["currency"] == _app.getBaseCurrency()]["available"]
-                            account.basebalance = 0.0 if len(df_base) == 0 else float(df_base.values[0])
-
-                            df_quote = ac[ac["currency"] == _app.getQuoteCurrency()]["available"]
-                            account.quotebalance = 0.0 if len(df_quote) == 0 else float(df_quote.values[0])
+                                df_quote = ac[ac["currency"] == app.getQuoteCurrency()]["available"]
+                                account.quotebalance = 0.0 if len(df_quote) == 0 else float(df_quote.values[0])
+                            except:
+                                pass
 
                             Logger.info(
                                 f"{_app.getBaseCurrency()} balance after order: {str(account.basebalance)}"
@@ -1113,14 +1120,16 @@ def executeJob(
                             Logger.info(
                                 f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance)}"
                             )
-                        else:
+
+                            state.last_api_call_datetime -= timedelta(seconds=60)
+                        except:
                             Logger.warning("Unable to place order")
                     else:
                         Logger.warning("Unable to place order, insufficient funds")
                 # if not live
                 else:
                     _app.notifyTelegram(
-                        f"{_app.getMarket()} ({_app.printGranularity()}) - {str(current_sim_date)}\n - TEST BUY at {price_text}"
+                        f"{_app.getMarket()} ({_app.printGranularity()}) TEST BUY at {price_text}"
                     )
                     if _state.last_buy_size == 0 and _state.last_buy_filled == 0:
                         # Sim mode can now use buymaxsize as the amount used for a buy
@@ -1196,6 +1205,8 @@ def executeJob(
                         },
                         ignore_index=True,
                     )
+
+                    state.last_api_call_datetime -= timedelta(seconds=60)
 
                 if _app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(_technical_analysis)
@@ -1312,7 +1323,8 @@ def executeJob(
 
                     if _app.enableexitaftersell and _app.startmethod not in ("standard", "telegram"):
                         sys.exit(0)
-
+                        
+                    state.last_api_call_datetime -= timedelta(seconds=60)
                 # if not live
                 else:
                     margin, profit, sell_fee = calculate_margin(
@@ -1412,7 +1424,7 @@ def executeJob(
                         },
                         ignore_index=True,
                     )
-
+                    state.last_api_call_datetime -= timedelta(seconds=60)
                 if _app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(_technical_analysis)
                     ts = datetime.now().timestamp()
@@ -1681,7 +1693,10 @@ def executeJob(
         # if live but not websockets
         if not _app.disableTracker() and _app.isLive() and not _app.enableWebsocket():
             # update order tracker csv
-            account.saveTrackerCSV(_app.getMarket())
+            if _app.getExchange() == Exchange.BINANCE:
+                account.saveTrackerCSV(_app.getMarket())
+            elif _app.getExchange() == Exchange.COINBASEPRO or _app.getExchange() == Exchange.KUCOIN:
+                account.saveTrackerCSV()
 
         if _app.isSimulation():
             if _state.iterations < len(df):
@@ -1762,6 +1777,10 @@ def main():
                 _websocket.start()
         elif app.getExchange() == Exchange.KUCOIN:
             message += "Kucoin bot"
+            if app.enableWebsocket() and not app.isSimulation():
+                print("Opening websocket to Kucoin...")
+                _websocket = KWebSocketClient([app.getMarket()], app.getGranularity())
+                _websocket.start()
 
         smartswitchstatus = "enabled" if app.getSmartSwitch() else "disabled"
         message += f" for {app.getMarket()} using granularity {app.printGranularity()}. Smartswitch {smartswitchstatus}"
@@ -1817,7 +1836,10 @@ def main():
                 f"{str(datetime.now())} bot is closed via keyboard interrupt..."
             )
         try:
-            telegram_bot.removeactivebot()
+            try:
+                telegram_bot.removeactivebot()
+            except:
+                pass
             if app.enableWebsocket() and not app.isSimulation():
                 _websocket.close()
             sys.exit(0)
@@ -1828,7 +1850,10 @@ def main():
         # catch all not managed exceptions and send a Telegram message if configured
         if not app.disableTelegramErrorMsgs():
             app.notifyTelegram(f"Bot for {app.getMarket()} got an exception: {repr(e)}")
-        telegram_bot.removeactivebot()
+            try:
+                telegram_bot.removeactivebot()
+            except:
+                pass
         Logger.critical(repr(e))
         # pylint: disable=protected-access
         os._exit(0)
