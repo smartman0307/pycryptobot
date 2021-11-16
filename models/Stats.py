@@ -2,7 +2,6 @@ import sys
 from datetime import datetime, timedelta
 from models.PyCryptoBot import PyCryptoBot
 from models.TradingAccount import TradingAccount
-from models.exchange.ExchangesEnum import Exchange
 from models.helper.LogHelper import Logger
 
 class Stats():
@@ -29,7 +28,7 @@ class Stats():
         for index, row in self.orders.iterrows():
             time = row['created_at'].to_pydatetime()
             if row['action'] == 'buy':
-                if self.app.exchange == Exchange.COINBASEPRO:
+                if self.app.exchange == 'coinbasepro':
                     amount = row['filled'] * row['price'] + row['fees']
                 else:
                     amount = row['size']
@@ -39,7 +38,7 @@ class Stats():
                 else:
                     self.order_pairs[-1]['buy']['size'] += amount
             else:
-                if self.app.exchange == Exchange.COINBASEPRO:
+                if self.app.exchange == 'coinbasepro':
                     amount = (row['filled'] * row['price']) - row['fees']
                 else:
                     amount = (float(row['filled']) * float(row['price'])) - row['fees']

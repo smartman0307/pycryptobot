@@ -10,8 +10,10 @@ import base64
 import sys
 import pandas as pd
 from numpy import floor
-from datetime import datetime
+from datetime import datetime, timedelta
+from requests.auth import AuthBase
 from requests import Request
+from urllib3.exceptions import HeaderParsingError
 from models.helper.LogHelper import Logger
 
 MARGIN_ADJUSTMENT = 0.0025
@@ -41,18 +43,6 @@ class AuthAPIBase:
             return True
         return False
 
-#     def to_kucoin_granularity(self, granularity) -> str:
-#         if isinstance(granularity, int):
-#             return {60: "1min", 300: "5min", 900: "15min", 3600: "1hour", 21600: "6hour", 86400: "1day"} [
-#                 granularity
-#             ]
-#         else:
-#             # return string if conversion is not required
-#             if granularity in SUPPORTED_GRANULARITY:
-#                 return granularity
-#             else:
-#                 raise ValueError(f"Invalid Kucoin granularity: {granularity}")
-# 
 
 class AuthAPI(AuthAPIBase):
     def __init__(
@@ -89,7 +79,7 @@ class AuthAPI(AuthAPIBase):
 
         # validate Kucoin API
         if api_url not in valid_urls:
-            raise ValueError("Kucoin API URL is invalid")
+            raise ValueError("kucoin API URL is invalid")
 
         if api_url[-1] != "/":
             api_url = api_url + "/"
@@ -119,12 +109,8 @@ class AuthAPI(AuthAPIBase):
 
         if self.debug:
             raise TypeError(err)
-        elif self.die_on_api_error:
-            raise SystemExit(err)
         else:
-            Logger.error(
-                f"Initialization Error: {err}"
-            )
+            raise SystemExit(err)
 
     def __call__(self, request) -> Request:
         """Signs the request"""
@@ -271,7 +257,7 @@ class AuthAPI(AuthAPIBase):
             raise ValueError("Invalid order status.")
 
         # GET /orders?status
-        resp = self.authAPI("GET", f"api/v1/orders?symbol={market}")
+        resp = self.authAPI("GET", f"api/v1/orders")
         if len(resp) > 0:
             if status == "active":
                 df = resp.copy()[
@@ -454,7 +440,8 @@ class AuthAPI(AuthAPIBase):
 
         if len(df) > 0:
             if df["type"][0] == "market":
-                df["size"] = df["funds"]
+                if df["size"][0] == 0:
+                    df["size"] = df["funds"]
 
         # for sell orders size is filled
         df["size"] = df["size"].fillna(df["filled"])
@@ -719,9 +706,6 @@ class AuthAPI(AuthAPIBase):
         except json.decoder.JSONDecodeError as err:
             return self.handle_api_error(err, "JSONDecodeError")
 
-        except Exception as err:
-            return self.handle_api_error(err, "Exception")
-
     def handle_api_error(self, err: str, reason: str) -> pd.DataFrame:
         """Handle API errors"""
 
@@ -735,7 +719,7 @@ class AuthAPI(AuthAPIBase):
             if self.die_on_api_error:
                 raise SystemExit(f"{reason}: {self._api_url}")
             else:
-                Logger.error(f"{reason}: {self._api_url}")
+                Logger.info(f"{reason}: {self._api_url}")
                 return pd.DataFrame()
 
 
@@ -746,6 +730,9 @@ class PublicAPI(AuthAPIBase):
         self.die_on_api_error = False
         self._api_url = api_url
 
+        self.debug = True
+        self.die_on_api_error = False
+
         valid_urls = [
             "https://api.kucoin.com",
             "https://api.kucoin.com/",
@@ -755,7 +742,7 @@ class PublicAPI(AuthAPIBase):
 
         # validate Kucoin API
         if api_url not in valid_urls:
-            raise ValueError("Kucoin API URL is invalid")
+            raise ValueError("kucoin API URL is invalid")
 
         if api_url[-1] != "/":
             api_url = api_url + "/"
@@ -793,50 +780,30 @@ class PublicAPI(AuthAPIBase):
         if not isinstance(iso8601end, str):
             raise TypeError("ISO8601 end integer as string required.")
 
-        resp = {}
-        trycnt, maxretry = (0, 3)
-        while trycnt <= maxretry:
-            if trycnt == 0 or "data" not in resp:
-                if trycnt > 0:
-                    Logger.warning(
-                        f"Kucoin API Error for Historical Data - 'data' not in response - retrying - attempt {trycnt}"
-                    )
-                    time.sleep(15)
-                trycnt += 1
-            else:
-                break
+        if iso8601start != "" and iso8601end == "":
+            startTime = int(
+                datetime.timestamp(datetime.strptime(iso8601start, "%Y-%m-%dT%H:%M:%S"))
+            )
+            resp = self.authAPI(
+                "GET",
+                f"api/v1/market/candles?type={granularity}&symbol={market}&startAt={startTime}",
+            )
+        elif iso8601start != "" and iso8601end != "":
+            startTime = int(
+                datetime.timestamp(datetime.strptime(iso8601start, "%Y-%m-%dT%H:%M:%S"))
+            )
 
-            if iso8601start != "" and iso8601end == "":
-                startTime = int(
-                    datetime.timestamp(
-                        datetime.strptime(iso8601start, "%Y-%m-%dT%H:%M:%S")
-                    )
-                )
-                resp = self.authAPI(
-                    "GET",
-                    f"api/v1/market/candles?type={granularity}&symbol={market}&startAt={startTime}",
-                )
-            elif iso8601start != "" and iso8601end != "":
-                startTime = int(
-                    datetime.timestamp(
-                        datetime.strptime(iso8601start, "%Y-%m-%dT%H:%M:%S")
-                    )
-                )
-
-                endTime = int(
-                    datetime.timestamp(
-                        datetime.strptime(iso8601end, "%Y-%m-%dT%H:%M:%S")
-                    )
-                )
-                resp = self.authAPI(
-                    "GET",
-                    f"api/v1/market/candles?type={granularity}&symbol={market}&startAt={startTime}&endAt={endTime}",
-                )
-            else:
-                resp = self.authAPI(
-                    "GET",
-                    f"api/v1/market/candles?type={granularity}&symbol={market}",
-                )
+            endTime = int(
+                datetime.timestamp(datetime.strptime(iso8601end, "%Y-%m-%dT%H:%M:%S"))
+            )
+            resp = self.authAPI(
+                "GET",
+                f"api/v1/market/candles?type={granularity}&symbol={market}&startAt={startTime}&endAt={endTime}",
+            )
+        else:
+            resp = self.authAPI(
+                "GET", f"api/v1/market/candles?type={granularity}&symbol={market}"
+            )
 
         # convert the API response into a Pandas DataFrame
         df = pd.DataFrame(
@@ -896,27 +863,7 @@ class PublicAPI(AuthAPIBase):
         resp = self.authAPI("GET", f"api/v1/market/orderbook/level1?symbol={market}")
 
         if "time" in resp["data"] and "price" in resp["data"]:
-            # make sure the time format is correct, if not, pause and submit request again
-            trycnt, maxretry = (1, 3)
-            while trycnt <= maxretry:
-                resptime = ""
-                try:
-                    resptime = datetime.strptime(
-                        str(datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)),
-                        "%Y-%m-%d %H:%M:%S.%f",
-                    )
-                except:
-                    Logger.warning(
-                        f"Kucoin API Error for Get Ticker: time format not correct - retrying - attempt {trycnt}"
-                    )
-                    time.sleep(15)
-                    resp = self.authAPI(
-                        "GET", f"api/v1/market/orderbook/level1?symbol={market}"
-                    )
-                    trycnt += 1
-                if resptime != "":
-                    break
-
+            test = datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)
             return (
                 datetime.strptime(
                     str(datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)),
@@ -924,9 +871,9 @@ class PublicAPI(AuthAPIBase):
                 ).strftime("%Y-%m-%d %H:%M:%S"),
                 float(resp["data"]["price"]),
             )
-        else:
-            now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-            return (now, 0.0)
+
+        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+        return (now, 0.0)
 
     def getTime(self) -> datetime:
         """Retrieves the exchange time"""
@@ -957,27 +904,15 @@ class PublicAPI(AuthAPIBase):
             elif method == "POST":
                 resp = requests.post(self._api_url + uri, json=payload)
 
-            # If API returns an error status code, retry request up to 5 times
-            trycnt, maxretry = (1, 5)
-            while trycnt <= maxretry:
-                if resp.status_code != 200:
-                    resp_message = resp.json()["msg"]
-                    message = f"{method} ({resp.status_code}) {self._api_url}{uri} - {resp_message}"
-                    if self.die_on_api_error:
-                        raise Exception(message)
-                    else:
-                        Logger.warning(
-                            f"Kucoin API request error - retry attempt {trycnt}: {message}"
-                        )
-                    time.sleep(15)
-                    trycnt += 1
+            # Logger.debug(resp.json())
+            if resp.status_code != 200:
+                resp_message = resp.json()["msg"]
+                message = f"{method} ({resp.status_code}) {self._api_url}{uri} - {resp_message}"
+                if self.die_on_api_error:
+                    raise Exception(message)
                 else:
-                    break
-
-                if method == "GET":
-                    resp = requests.get(self._api_url + uri)
-                elif method == "POST":
-                    resp = requests.post(self._api_url + uri, json=payload)
+                    Logger.error(f"Error: {message}")
+                    return {}
 
             resp.raise_for_status()
             return resp.json()
@@ -1007,5 +942,5 @@ class PublicAPI(AuthAPIBase):
             if self.die_on_api_error:
                 raise SystemExit(f"{reason}: {self._api_url}")
             else:
-                Logger.error(f"{reason}: {self._api_url}")
+                Logger.info(f"{reason}: {self._api_url}")
                 return {}
