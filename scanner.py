@@ -3,7 +3,6 @@ import json
 import pandas as pd
 
 from models.PyCryptoBot import PyCryptoBot
-from models.exchange import kucoin
 from models.helper.TelegramBotHelper import TelegramBotHelper as TGBot
 from models.Trading import TechnicalAnalysis
 from models.exchange.binance import PublicAPI as BPublicAPI
@@ -44,11 +43,8 @@ for exchange in config:
                     resp[market]["stats_24hour"]["market"] = market
                     markets.append(resp[market]["stats_24hour"])
         elif ex == Exchange.KUCOIN:
-            results = resp["data"]["ticker"]
-            for result in results:
-                if result["symbol"].endswith(f"-{quote}"):
-                    markets.append(result)
-
+            #TODO: getMarket24HrStats needs to be added to PublicAPI
+            raise Exception("getMarket24HrStats needs to be added to PublicAPI")
 
         df_markets = pd.DataFrame(markets)
 
@@ -56,9 +52,6 @@ for exchange in config:
             df_markets = df_markets[["symbol", "lastPrice", "quoteVolume"]]
         elif ex == Exchange.COINBASEPRO:
             df_markets = df_markets[["market", "last", "volume"]]
-        elif ex == Exchange.KUCOIN:
-            df_markets = df_markets[["symbol", "last", "volValue"]]
-
 
         df_markets.columns = ["market", "price", "volume"]
         df_markets["price"] = df_markets["price"].astype(float)
@@ -93,7 +86,7 @@ for exchange in config:
                 print(err)
 
             # don't flood exchange, sleep 1 second
-            time.sleep(2)
+            time.sleep(1)
 
             # current position
             ROW += 1
