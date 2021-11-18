@@ -15,7 +15,6 @@ import subprocess
 import platform
 import re
 import urllib.request
-from sched import scheduler
 
 from datetime import datetime
 from time import sleep, time
@@ -417,8 +416,8 @@ class TelegramBot(TelegramBotBase):
             BotCommand("sell", "manual sell"),
             BotCommand("addexception", "add pair to scanner exception list"),
             BotCommand("removeexception", "remove pair from scanner exception list"),
-            BotCommand("startscanner", "start auto scan high volume markets and start bots"),
-            BotCommand("stopscanner", "stop auto scan high volume markets")
+            BotCommand("startscanner", "start auto scan high volumne markets and start bots"),
+            BotCommand("stopscanner", "stop auto scan high volumne markets")
         ]
 
         ubot = Bot(self.token)
@@ -451,8 +450,8 @@ class TelegramBot(TelegramBotBase):
         helptext += "<b>/sell</b> - <i>sell market pair on next iteration</i>\n"
         helptext += "<b>/buy</b> - <i>buy market pair on next iteration</i>\n\n"
         helptext += "<b>Market Scanner Commands</b>\n\n"
-        helptext += "<b>/startscanner</b> - <i>start auto scan high volume markets and start bots</i>\n"
-        helptext += "<b>/stopscanner</b> - <i>stop auto scan high volume markets</i>\n"
+        helptext += "<b>/startscanner</b> - <i>start auto scan high volumne markets and start bots</i>\n"
+        helptext += "<b>/stopscanner</b> - <i>stop auto scan high volumne markets</i>\n"
         helptext += "<b>/addexception</b> - <i>add pair to scanner exception list</i>\n"
         helptext += "<b>/removeexception</b> - <i>remove pair from scanner exception list</i>\n"
 
@@ -1190,7 +1189,7 @@ class TelegramBot(TelegramBotBase):
             # subprocess.Popen(f"python3 pycryptobot.py {overrides}", creationflags=subprocess.CREATE_NEW_CONSOLE)
             os.system(
                     f"start powershell -Command $host.UI.RawUI.WindowTitle = '{self.pair}' ; "
-                    f"python3 pycryptobot.py --startmethod {startmethod} --exchange {self.exchange} --market {self.pair} {self.overrides}"
+                    f"python3 pycryptobot.py --startmethod {startmethod} --exchange {self.exchange} --market {self.pair} --logfile './logs/{self.exchange}-{self.pair}-{datetime.now().date()}.log' {self.overrides}"
                 )
 
         def StartLinuxProcess() -> None:
