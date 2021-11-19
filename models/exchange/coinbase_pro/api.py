@@ -16,7 +16,6 @@ from requests import Request
 from threading import Thread
 from websocket import create_connection, WebSocketConnectionClosedException
 from models.helper.LogHelper import Logger
-from models.exchange.Granularity import Granularity
 
 MARGIN_ADJUSTMENT = 0.0025
 DEFAULT_MAKER_FEE_RATE = 0.005
@@ -36,16 +35,6 @@ class AuthAPIBase:
             return True
         return False
 
-    # def to_coinbasepro_granularity(self, granularity) -> str:
-    #     if isinstance(granularity, int):
-    #         if granularity in SUPPORTED_GRANULARITY:
-    #             return granularity
-    #         else:
-    #             raise ValueError(f"Invalid Binance granularity: {granularity}")
-    #     else:
-    #         return {"1min" : 60, "5min" : 300, "15min" : 900, "1hour" : 3600, "6hour" : 21600, "1day" : 86400} [
-    #             granularity
-    #         ]
 
 class AuthAPI(AuthAPIBase):
     def __init__(
@@ -696,8 +685,7 @@ class PublicAPI(AuthAPIBase):
     def getHistoricalData(
         self,
         market: str = DEFAULT_MARKET,
-        # granularity: int = MAX_GRANULARITY,
-        granularity: Granularity = Granularity.ONE_HOUR,
+        granularity: int = MAX_GRANULARITY,
         websocket=None,
         iso8601start: str = "",
         iso8601end: str = "",
@@ -709,11 +697,11 @@ class PublicAPI(AuthAPIBase):
             raise TypeError("Coinbase Pro market required.")
 
         # validates granularity is an integer
-        if not isinstance(granularity.to_integer, int):
+        if not isinstance(granularity, int):
             raise TypeError("Granularity integer required.")
 
         # validates the granularity is supported by Coinbase Pro
-        if not granularity.to_integer in SUPPORTED_GRANULARITY:
+        if not granularity in SUPPORTED_GRANULARITY:
             raise TypeError(
                 "Granularity options: " + ", ".join(map(str, SUPPORTED_GRANULARITY))
             )
@@ -739,16 +727,16 @@ class PublicAPI(AuthAPIBase):
             if iso8601start != "" and iso8601end == "":
                 resp = self.authAPI(
                     "GET",
-                    f"products/{market}/candles?granularity={granularity.to_integer}&start={iso8601start}",
+                    f"products/{market}/candles?granularity={granularity}&start={iso8601start}",
                 )
             elif iso8601start != "" and iso8601end != "":
                 resp = self.authAPI(
                     "GET",
-                    f"products/{market}/candles?granularity={granularity.to_integer}&start={iso8601start}&end={iso8601end}",
+                    f"products/{market}/candles?granularity={granularity}&start={iso8601start}&end={iso8601end}",
                 )
             else:
                 resp = self.authAPI(
-                    "GET", f"products/{market}/candles?granularity={granularity.to_integer}"
+                    "GET", f"products/{market}/candles?granularity={granularity}"
                 )
 
             # convert the API response into a Pandas DataFrame
@@ -759,7 +747,7 @@ class PublicAPI(AuthAPIBase):
             df = df.iloc[::-1].reset_index()
 
             try:
-                freq = FREQUENCY_EQUIVALENTS[SUPPORTED_GRANULARITY.index(granularity.to_integer)]
+                freq = FREQUENCY_EQUIVALENTS[SUPPORTED_GRANULARITY.index(granularity)]
             except:
                 freq = "D"
 
@@ -784,7 +772,7 @@ class PublicAPI(AuthAPIBase):
                 df["date"] = tsidx
 
             df["market"] = market
-            df["granularity"] = granularity.to_integer
+            df["granularity"] = granularity
 
             # re-order columns
             df = df[
@@ -828,6 +816,10 @@ class PublicAPI(AuthAPIBase):
         resp = self.authAPI("GET", f"products/{market}/ticker")
 
         if "time" in resp and "price" in resp:
+
+            """Check if milliseconds (%f) are more then 6 digits. If so truncate for datetime which doesn't support more"""
+            if len(resp["time"].split('.')[1]) > 7: resp["time"]=resp["time"][:26] + 'Z'
+
             return (
                 datetime.strptime(resp["time"], "%Y-%m-%dT%H:%M:%S.%fZ").strftime(
                     "%Y-%m-%d %H:%M:%S"
@@ -930,8 +922,7 @@ class WebSocket(AuthAPIBase):
     def __init__(
         self,
         markets=None,
-        # granularity=None,
-        granularity: Granularity = Granularity.ONE_HOUR,
+        granularity=None,
         api_url="https://api.pro.coinbase.com",
         ws_url="wss://ws-feed.pro.coinbase.com",
     ) -> None:
@@ -1080,8 +1071,7 @@ class WebSocketClient(WebSocket):
     def __init__(
         self,
         markets: list = [DEFAULT_MARKET],
-        # granularity: str = DEFAULT_GRANULARITY,
-        granularity: Granularity = Granularity.ONE_HOUR,
+        granularity: str = DEFAULT_GRANULARITY,
         api_url="https://api.pro.coinbase.com/",
         ws_url: str = "wss://ws-feed.pro.coinbase.com",
     ) -> None:
@@ -1094,11 +1084,11 @@ class WebSocketClient(WebSocket):
                 raise ValueError("Coinbase Pro market is invalid.")
 
         # validates granularity is an integer
-        if not isinstance(granularity.to_integer, int):
+        if not isinstance(granularity, int):
             raise TypeError("Granularity integer required.")
 
         # validates the granularity is supported by Coinbase Pro
-        if not granularity.to_integer in SUPPORTED_GRANULARITY:
+        if not granularity in SUPPORTED_GRANULARITY:
             raise TypeError(
                 "Granularity options: " + ", ".join(map(str, SUPPORTED_GRANULARITY))
             )
@@ -1167,7 +1157,18 @@ class WebSocketClient(WebSocket):
             df["price"] = df["price"].astype("float64")
 
             # form candles
-            df["candle"] = df["date"].dt.floor(freq=self.granularity.frequency)
+            if self.granularity == 60:
+                df["candle"] = df["date"].dt.floor(freq="1T")
+            elif self.granularity == 300:
+                df["candle"] = df["date"].dt.floor(freq="5T")
+            elif self.granularity == 900:
+                df["candle"] = df["date"].dt.floor(freq="15T")
+            elif self.granularity == 3600:
+                df["candle"] = df["date"].dt.floor(freq="1H")
+            elif self.granularity == 21600:
+                df["candle"] = df["date"].dt.floor(freq="6H")
+            elif self.granularity == 86400:
+                df["candle"] = df["date"].dt.floor(freq="1D")
 
             # candles dataframe is empty
             if self.candles is None:
@@ -1193,7 +1194,7 @@ class WebSocketClient(WebSocket):
                             [
                                 df["candle"].values[0],
                                 df["market"].values[0],
-                                self.granularity.to_integer,
+                                self.granularity,
                                 df["price"].values[0],
                                 df["price"].values[0],
                                 df["price"].values[0],
@@ -1241,7 +1242,7 @@ class WebSocketClient(WebSocket):
                                     [
                                         df["candle"].values[0],
                                         df["market"].values[0],
-                                        self.granularity.to_integer,
+                                        self.granularity,
                                         df["price"].values[0],
                                         df["price"].values[0],
                                         df["price"].values[0],
@@ -1267,7 +1268,7 @@ class WebSocketClient(WebSocket):
                                 [
                                     df["candle"].values[0],
                                     df["market"].values[0],
-                                    self.granularity.to_integer,
+                                    self.granularity,
                                     df["price"].values[0],
                                     df["price"].values[0],
                                     df["price"].values[0],
