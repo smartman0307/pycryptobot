@@ -6,7 +6,7 @@ import argparse
 from time import sleep
 from guizero import App, Text, TextBox, MenuBar, info
 
-### Setting initial values for color variables ###
+### Setting intial values for color variables ###
 bgvalue = ""
 txvalue = ''
 posvalue = ''

@@ -15,7 +15,6 @@ import subprocess
 import platform
 import re
 import urllib.request
-from sched import scheduler
 
 from datetime import datetime
 from time import sleep, time
@@ -895,38 +894,6 @@ class TelegramBot(TelegramBotBase):
                     f"Restarting {query.data.replace('restart_', '').replace('.json','')}",
                     parse_mode="HTML",
                 )
-    def startallbotsoninit(self) -> None:
-        jsonfiles = os.listdir(os.path.join(self.datafolder, "telegram_data"))
-        data = self.data
-        mBot = Telegram(self.token, client_id=self.config['telegram']['client_id'])
-        mBot.send("Starting telegram bot")
-        for file in jsonfiles:
-            if (
-                    ".json" in file
-                    and not file == "data.json"
-                    and not file.__contains__("output.json")
-            ):
-                self._read_data(file)
-                if 'botcontrol' in  self.data \
-                        and 'status' in self.data["botcontrol"] \
-                        and self.data["botcontrol"]["status"] == "active":
-                    pair = file[:-5]
-                    overrides = data["markets"][pair]["overrides"] if 'markets' in data \
-                                                                      and pair in data["markets"] \
-                                                                      and 'overrides' in data["markets"][pair] \
-                        else f"--startmethod scanner --exchange {self.data['exchange']} --market {pair}"
-                    if platform.system() == "Windows":
-                        os.system(
-                            f"start powershell -Command $host.UI.RawUI.WindowTitle = '{pair}' ; python3 pycryptobot.py --startmethod telegram {overrides}"
-                        )
-                    else:
-                        subprocess.Popen(
-                            f"python3 pycryptobot.py --startmethod telegram {overrides}", shell=True
-                        )
-
-                    mBot.send(f"<i>Starting {pair} crypto bot</i>", parsemode="HTML")
-                    sleep(10)
-
 
     def startallbotsrequest(self, update, context) -> None:
         """Ask which bot to start from start list (or all)"""
@@ -1050,38 +1017,26 @@ class TelegramBot(TelegramBotBase):
 
         if "allclose" in query.data:
             query.edit_message_text("Stopping bots")
-            jsonfiles = os.listdir(os.path.join(self.datafolder, "telegram_data"))
+
             telegram = Telegram(self.token, str(context._chat_id_and_data[0]))
-            for file in jsonfiles:
-                if (
-                    ".json" in file
-                    and not file == "data.json"
-                    and not file.__contains__("output.json")
-                ):
-                    self._read_data(file)
-                    if "margin" in self.data and self.data["margin"] == " ":
-                        if self.updatebotcontrol(file, "exit"):
-                            telegram.send(
-                                f"Stopping {file.replace('.json', '')} crypto bot"
-                            )
-                            sleep(1)
+            jsonfiles = self.GetActiveBotList()
+            for pair in jsonfiles:
+                self._read_data(f"{pair}.json")
+                if "margin" in self.data and self.data["margin"] == " ":
+                    if self.updatebotcontrol(f"{pair}.json", "exit"):
+                        telegram.send(f"Stopping {pair} crypto bot")
+                        sleep(1)
 
         elif "all" in query.data:
             query.edit_message_text("Stopping all bots")
 
-            jsonfiles = os.listdir(os.path.join(self.datafolder, "telegram_data"))
             telegram = Telegram(self.token, str(context._chat_id_and_data[0]))
-            for file in jsonfiles:
-                if (
-                    ".json" in file
-                    and not file == "data.json"
-                    and not file.__contains__("output.json")
-                ):
-                    if self.updatebotcontrol(file, "exit"):
-                        telegram.send(
-                            f"Stopping {file.replace('.json', '')} crypto bot"
-                        )
-                        sleep(1)
+            jsonfiles = self.GetActiveBotList()
+            for pair in jsonfiles:
+                if self.updatebotcontrol(f"{pair}.json", "exit"):
+                    telegram.send(f"Stopping {pair} crypto bot")
+                    sleep(1)
+
         else:
             if self.updatebotcontrol(str(query.data).replace("stop_", ""), "exit"):
                 query.edit_message_text(
@@ -1222,7 +1177,7 @@ class TelegramBot(TelegramBotBase):
             # subprocess.Popen(f"python3 pycryptobot.py {overrides}", creationflags=subprocess.CREATE_NEW_CONSOLE)
             os.system(
                     f"start powershell -Command $host.UI.RawUI.WindowTitle = '{self.pair}' ; "
-                    f"python3 pycryptobot.py --startmethod {startmethod} --exchange {self.exchange} --market {self.pair} {self.overrides}"
+                    f"python3 pycryptobot.py --startmethod {startmethod} --exchange {self.exchange} --market {self.pair} --logfile './logs/{self.exchange}-{self.pair}-{datetime.now().date()}.log' {self.overrides}"
                 )
 
         def StartLinuxProcess() -> None:
@@ -1422,7 +1377,7 @@ class TelegramBot(TelegramBotBase):
                     if debug:
                         logger.info("%s", row)
 
-                    if self.maxbotcount > 0 and botcounter > self.maxbotcount:
+                    if self.maxbotcount > 0 and botcounter >= self.maxbotcount:
                         continue
                     
                     if self.enableleverage == False and (
@@ -1588,6 +1543,43 @@ class TelegramBot(TelegramBotBase):
             parse_mode="HTML",
         )
 
+    def RestartBots(self, update, context):
+        bots = self.GetActiveBotList()
+        for bot in bots:
+            self._read_data(f"{bot}.json")
+            # if "margin" in self.data and self.data["margin"] == " ":
+            self.updatebotcontrol(f"{bot}.json", "exit")
+        
+        allstopped = False
+        while allstopped == False:
+            if len(self.GetActiveBotList()) == 0:
+                allstopped = True
+
+        bList = {}
+
+        # bots = self.GetActiveBotList()
+        for bot in bots:
+            self._read_data(f"{bot}.json")
+            bList.update({bot : self.data["exchange"]})
+
+        for bot in bList:
+            self.pair = bot
+            self.exchange = bList[bot]
+            self.newbot_start(update, context)
+
+        print(bList)
+
+
+    def GetActiveBotList(self):
+        jsonfiles = os.listdir(os.path.join(self.datafolder, "telegram_data"))
+
+        i=len(jsonfiles)-1
+        while i >= 0:
+            if jsonfiles[i] == "data.json" or jsonfiles[i].__contains__("output.json"):
+                jsonfiles.pop(i)
+            i -= 1
+
+        return [x.replace(".json", "") if x.__contains__(".json") else x for x in jsonfiles]
 
 def main():
     """Start the bot."""
@@ -1596,7 +1588,7 @@ def main():
 
     # Get the dispatcher to register handlers
     dp = botconfig.updater.dispatcher
-    dp.run_async(botconfig.startallbotsoninit)
+
     # Information commands
     dp.add_handler(CommandHandler("help", botconfig.help))
     dp.add_handler(CommandHandler("margins", botconfig.marginrequest, Filters.all))
@@ -1626,6 +1618,8 @@ def main():
     dp.add_handler(CommandHandler("cleandata", botconfig.cleandata, Filters.text))
 
     dp.add_handler(CommandHandler("removeexception", botconfig.ExceptionRemove, Filters.text))
+
+    dp.add_handler(CommandHandler("reboot", botconfig.RestartBots))
 
     # Response to Question handler
     dp.add_handler(CallbackQueryHandler(botconfig.responses))
