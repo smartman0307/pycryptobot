@@ -194,9 +194,6 @@ class AppState:
 
         if actionchk:
             return
-        elif quote < 10:
-            if self.app.enableinsufficientfundslogging:
-                self.app.insufficientfunds = True
         elif (quote / price) < base_min:
             if self.app.enableinsufficientfundslogging:
                 self.app.insufficientfunds = True
@@ -214,18 +211,14 @@ class AppState:
             self.last_action = "SELL"
             return
 
-        base = 0.0
-        quote = 0.0
-
         ac = self.account.getBalance()
-        try:
-            df_base = ac[ac["currency"] == self.app.getBaseCurrency()]["available"]
-            base = 0.0 if len(df_base) == 0 else float(df_base.values[0])
 
-            df_quote = ac[ac["currency"] == self.app.getQuoteCurrency()]["available"]
-            quote = 0.0 if len(df_quote) == 0 else float(df_quote.values[0])
-        except:
-            pass
+        df_base = ac[ac["currency"] == self.app.getBaseCurrency()]["available"]
+        base = 0.0 if len(df_base) == 0 else float(df_base.values[0])
+
+        df_quote = ac[ac["currency"] == self.app.getQuoteCurrency()]["available"]
+        quote = 0.0 if len(df_quote) == 0 else float(df_quote.values[0])
+
         orders = self.account.getOrders(self.app.getMarket(), "", "done")
         if len(orders) > 0:
             last_order = orders[-1:]
@@ -256,8 +249,6 @@ class AppState:
                 self.last_buy_price = 0.0
                 return
         else:
-            if quote > 0.0:
-                self.minimumOrderQuote(quote)
             # nil base or quote funds
             if base == 0.0 and quote == 0.0:
                 if self.app.enableinsufficientfundslogging:
@@ -279,11 +270,7 @@ class AppState:
 
             # If Kucoin returns empty response, on a shared trading account, could multiple buy same pair
             if self.app.getExchange() == Exchange.KUCOIN and self.minimumOrderBase(base, actionchk=True) and self.minimumOrderQuote(quote, actionchk=True):
-                if self.last_action == "BUY":
-                    return
-                else:
-                    self.last_action = "WAIT"
-                    Logger.warning('Kucoin temporary state set to "WAIT".')
+                self.last_action = "BUY"
             elif order_pairs_normalised[0] < order_pairs_normalised[1]:
                 self.minimumOrderQuote(quote)
                 self.last_action = "SELL"
