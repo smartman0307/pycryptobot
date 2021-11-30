@@ -1315,7 +1315,6 @@ def executeJob(
                     )
 
                     if _app.enableexitaftersell and _app.startmethod not in ("standard", "telegram"):
-                        telegram_bot.deletemargin()
                         sys.exit(0)
                         
                     state.last_api_call_datetime -= timedelta(seconds=60)
