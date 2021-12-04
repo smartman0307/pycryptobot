@@ -8,7 +8,7 @@ from .default_parser import isCurrencyValid, defaultConfigParse, merge_config_an
 from models.exchange.Granularity import Granularity
 
 def isMarketValid(market) -> bool:
-    p = re.compile(r"^[0-9A-Z]{1,10}\-[1-9A-Z]{2,5}$")
+    p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
     return p.match(market) is not None
 
 def parseMarket(market):
@@ -18,31 +18,30 @@ def parseMarket(market):
     base_currency, quote_currency = market.split('-', 2)
     return market, base_currency, quote_currency
 
-def parser(app, kucoin_config, args={}):
+def parser(app, Kucoin_config, args={}):
     #print('Kucoin Configuration parse')
 
     if not app:
         raise Exception('No app is passed')
 
-    if isinstance(kucoin_config, dict):
-        if 'api_key' in kucoin_config or 'api_secret' in kucoin_config or 'api_passphrase' in kucoin_config:
-            print('>>> migrating api keys to kucoin.key <<<', "\n")
+    if isinstance(Kucoin_config, dict):
+        if 'api_key' in Kucoin_config or 'api_secret' in Kucoin_config:
+            print('>>> migrating api keys to Kucoin.key <<<', "\n")
 
-            # create 'kucoin.key'
-            fh = open('kucoin.key', 'w', encoding='utf8')
-            fh.write(kucoin_config['api_key'] + "\n" + kucoin_config['api_secret'] + "\n" + kucoin_config['api_passphrase'])
+            # create 'Kucoin.key'
+            fh = open('Kucoin.key', 'w')
+            fh.write(Kucoin_config['api_key'] + "\n" + Kucoin_config['api_secret'])
             fh.close()
 
-            if os.path.isfile('config.json') and os.path.isfile('kucoin.key'):
-                kucoin_config['api_key_file'] = kucoin_config.pop('api_key')
-                kucoin_config['api_key_file'] = 'kucoin.key'
-                del kucoin_config['api_secret']
-                del kucoin_config['api_passphrase']
+            if os.path.isfile('config.json') and os.path.isfile('Kucoin.key'):
+                Kucoin_config['api_key_file'] = Kucoin_config.pop('api_key')
+                Kucoin_config['api_key_file'] = 'Kucoin.key'
+                Kucoin_config['api_secret']
 
                 # read 'Kucoin' element from config.json
-                fh = open('config.json', 'r', encoding='utf8')
+                fh = open('config.json', 'r')
                 config_json = ast.literal_eval(fh.read())
-                config_json['kucoin'] = kucoin_config
+                config_json['kucoin'] = Kucoin_config
                 fh.close()
 
                 # write new 'Kucoin' element
@@ -55,8 +54,8 @@ def parser(app, kucoin_config, args={}):
         api_key_file = None
         if 'api_key_file' in args and args['api_key_file'] is not None:
             api_key_file = args['api_key_file']
-        elif 'api_key_file' in kucoin_config:
-            api_key_file = kucoin_config['api_key_file']
+        elif 'api_key_file' in Kucoin_config:
+            api_key_file = Kucoin_config['api_key_file']
 
         if api_key_file is not None:
             try :
@@ -64,34 +63,34 @@ def parser(app, kucoin_config, args={}):
                     key = f.readline().strip()
                     secret = f.readline().strip()
                     password = f.readline().strip()
-                kucoin_config['api_key'] = key
-                kucoin_config['api_secret'] = secret
-                kucoin_config['api_passphrase'] = password
+                Kucoin_config['api_key'] = key
+                Kucoin_config['api_secret'] = secret
+                Kucoin_config['api_passphrase'] = password
             except :
                 raise RuntimeError(f"Unable to read {api_key_file}")
 
-        if 'api_key' in kucoin_config and 'api_secret' in kucoin_config and \
-                'api_passphrase' in kucoin_config and 'api_url' in kucoin_config:
+        if 'api_key' in Kucoin_config and 'api_secret' in Kucoin_config and \
+                'api_passphrase' in Kucoin_config and 'api_url' in Kucoin_config:
             # validates the api key is syntactically correct
             p = re.compile(r"^[A-z0-9]{24,24}$")
-            if not p.match(kucoin_config['api_key']):
+            if not p.match(Kucoin_config['api_key']):
                 raise TypeError('Kucoin API key is invalid')
 
-            app.api_key = kucoin_config['api_key']
+            app.api_key = Kucoin_config['api_key']
 
             # validates the api secret is syntactically correct
             p = re.compile(r"^[A-z0-9-]{36,36}$")
-            if not p.match(kucoin_config['api_secret']):
+            if not p.match(Kucoin_config['api_secret']):
                 raise TypeError('Kucoin API secret is invalid')
 
-            app.api_secret = kucoin_config['api_secret']
+            app.api_secret = Kucoin_config['api_secret']
 
             # validates the api passphrase is syntactically correct
             p = re.compile(r"^[A-z0-9#$%=@!{},`~&*()<>?.:;_|^/+\[\]]{8,32}$")
-            if not p.match(kucoin_config['api_passphrase']):
+            if not p.match(Kucoin_config['api_passphrase']):
                 raise TypeError('Kucoin API passphrase is invalid')
 
-            app.api_passphrase = kucoin_config['api_passphrase']
+            app.api_passphrase = Kucoin_config['api_passphrase']
 
             valid_urls = [
                 'https://api.kucoin.com/',
@@ -101,16 +100,16 @@ def parser(app, kucoin_config, args={}):
             ]
 
             # validate Kucoin API
-            if kucoin_config['api_url'] not in valid_urls:
+            if Kucoin_config['api_url'] not in valid_urls:
                 raise ValueError('Kucoin API URL is invalid')
 
-            app.api_url = kucoin_config['api_url']
+            app.api_url = Kucoin_config['api_url']
             app.base_currency = 'BTC'
             app.quote_currency = 'GBP'
     else:
-        kucoin_config = {}
+        Kucoin_config = {}
 
-    config = merge_config_and_args(kucoin_config, args)
+    config = merge_config_and_args(Kucoin_config, args)
 
     defaultConfigParse(app, config)
 
