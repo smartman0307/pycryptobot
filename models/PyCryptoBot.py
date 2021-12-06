@@ -90,20 +90,20 @@ class PyCryptoBot(BotConfig):
             or self.exchange == Exchange.BINANCE
             or self.exchange == Exchange.KUCOIN
         ):
-            p = re.compile(r"^[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[1-9A-Z]{2,20}$")
             return p.match(currency)
 
         return False
 
     def _isMarketValid(self, market):
         if self.exchange == Exchange.COINBASEPRO or self.exchange == Exchange.KUCOIN:
-            p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[1-9A-Z]{2,20}\-[1-9A-Z]{2,20}$")
             return p.match(market)
         elif self.exchange == Exchange.BINANCE:
             p = re.compile(r"^[A-Z0-9]{6,12}$")
             if p.match(market):
                 return True
-            p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[1-9A-Z]{2,20}\-[1-9A-Z]{2,20}$")
             if p.match(market):
                 return True
             return False
@@ -240,14 +240,14 @@ class PyCryptoBot(BotConfig):
 
             if iso8601start != "" and iso8601end == "":
                 return api.getHistoricalData(
-                    market, granularity.to_medium, iso8601start
+                    market, granularity, iso8601start
                 )
             elif iso8601start != "" and iso8601end != "":
                 return api.getHistoricalData(
-                    market, granularity.to_medium, iso8601start, iso8601end
+                    market, granularity, iso8601start, iso8601end
                 )
             else:
-                return api.getHistoricalData(market, granularity.to_medium)
+                return api.getHistoricalData(market, granularity, websocket)
         else:  # returns data from coinbase if not specified
             api = CBPublicAPI()
 
@@ -512,7 +512,7 @@ class PyCryptoBot(BotConfig):
                 self.ema1226_1h_cache = df_data
             elif self.exchange == Exchange.KUCOIN:
                 api = KPublicAPI(api_url=self.getAPIURL())
-                df_data = api.getHistoricalData(self.market, Granularity.ONE_HOUR.to_medium)
+                df_data = api.getHistoricalData(self.market, Granularity.ONE_HOUR, websocket)
                 self.ema1226_1h_cache = df_data
             else:
                 return False
@@ -548,7 +548,7 @@ class PyCryptoBot(BotConfig):
                 self.sma50200_1h_cache = df_data
             elif self.exchange == Exchange.KUCOIN:
                 api = KPublicAPI(api_url=self.getAPIURL())
-                df_data = api.getHistoricalData(self.market, Granularity.ONE_HOUR.to_medium)
+                df_data = api.getHistoricalData(self.market, Granularity.ONE_HOUR, websocket)
                 self.sma50200_1h_cache = df_data
             else:
                 return False
@@ -578,7 +578,7 @@ class PyCryptoBot(BotConfig):
                 df_data = api.getHistoricalData(self.market, Granularity.ONE_DAY, websocket)
             elif self.exchange == Exchange.KUCOIN:
                 api = KPublicAPI(api_url=self.getAPIURL())
-                df_data = api.getHistoricalData(self.market, Granularity.ONE_DAY.to_medium)
+                df_data = api.getHistoricalData(self.market, Granularity.ONE_DAY, websocket)
             else:
                 return False  # if there is an API issue, default to False to avoid hard sells
 
@@ -611,7 +611,7 @@ class PyCryptoBot(BotConfig):
                 self.ema1226_6h_cache = df_data
             elif self.exchange == Exchange.KUCOIN:
                 api = KPublicAPI(api_url=self.getAPIURL())
-                df_data = api.getHistoricalData(self.market, Granularity.SIX_HOURS.to_medium)
+                df_data = api.getHistoricalData(self.market, Granularity.SIX_HOURS, websocket)
                 self.ema1226_6h_cache = df_data
             else:
                 return False
@@ -641,7 +641,7 @@ class PyCryptoBot(BotConfig):
                 df_data = api.getHistoricalData(self.market, Granularity.SIX_HOURS, websocket)
             elif self.exchange == Exchange.KUCOIN:
                 api = KPublicAPI(api_url=self.getAPIURL())
-                df_data = api.getHistoricalData(self.market, Granularity.SIX_HOURS.to_medium)
+                df_data = api.getHistoricalData(self.market, Granularity.SIX_HOURS, websocket)
             else:
                 return False
 
