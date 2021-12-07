@@ -456,7 +456,7 @@ def executeJob(
 
                     if (
                         _app.getExchange() == Exchange.COINBASEPRO
-                        or _app.getExchange() == Exchange.KUCOIN
+                        or _app.getExchange() == Exchange.COINBASEPRO
                     ):
                         if _state.last_buy_fee != exchange_last_buy["fee"]:
                             _state.last_buy_fee = exchange_last_buy["fee"]
@@ -1356,6 +1356,7 @@ def executeJob(
                         _app.getSellPercent(),
                     )
                     Logger.debug(resp)
+                    _state.buy_wait_count = 0
 
                     # display balances
                     account.basebalance = float(
@@ -1425,7 +1426,7 @@ def executeJob(
                         + ") "
                         + str(current_sim_date)
                         + "\n - TEST SELL at "
-                        + str(price_text)
+                        + str(_truncate(price_text, 4))
                         + " (margin: "
                         + margin_text
                         + ", delta: "
