@@ -14,7 +14,7 @@ def merge_config_and_args(exchange_config, args):
 
 
 def isCurrencyValid(currency):
-    p = re.compile(r"^[1-9A-Z]{2,20}$")
+    p = re.compile(r"^[1-9A-Z]{2,5}$")
     return p.match(currency)
 
 
@@ -483,20 +483,6 @@ def defaultConfigParse(app, config):
                 app.buymaxsize = config["buymaxsize"]
         else:
             raise TypeError("buymaxsize must be of type int or float")
-
-    if "buylastsellsize" in config:
-        if isinstance(config["buylastsellsize"], int):
-            if bool(config["buylastsellsize"]):
-                app.buylastsellsize = True
-        else:
-            raise TypeError("buylastsellsize must be of type int")
-
-    if "marketmultibuycheck" in config:
-        if isinstance(config["marketmultibuycheck"], int):
-            if bool(config["marketmultibuycheck"]):
-                app.marketmultibuycheck = True
-        else:
-            raise TypeError("marketmultibuycheck must be of type int")
 
     if "logbuysellinjson" in config:
         if isinstance(config["logbuysellinjson"], int):
