@@ -1,6 +1,7 @@
 [![Docker](https://github.com/whittlem/pycryptobot/actions/workflows/container.yml/badge.svg)](https://github.com/whittlem/pycryptobot/actions/workflows/container.yml/badge.svg) [![Tests](https://github.com/whittlem/pycryptobot/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/whittlem/pycryptobot/actions/workflows/unit-tests.yml/badge.svg)
 
-# Python Crypto Bot v4.4.2 (pycryptobot)
+
+# Python Crypto Bot v4.6.0 (pycryptobot)
 
 ## Join our chat on Telegram
 
@@ -375,6 +376,15 @@ The bot will only trade in a bull market to minimise losses! (you can disable th
 Special buy cases:
 
 * "nobuynearhighpcnt" to specify the percentage from high that the bot should not buy if "disablebuynearhigh" is not specified.
+* "buymaxsize" specifies a fixed max amount of the quote currency to buy with.
+* "buylastsellsize" when enabled, bot will buy the same size as the last sell size for the current market.
+* "trailingbuypcnt" specifies the percentage for the price to increase before placing buy order after receiving buy signal
+        The default percentage is 0%.  If the price drops after receiving buy signal, the bot will automatically follow the price
+        down until and wathc for it to have a positive percentage.  You are able to adjust this to any number above zero that you would 
+        like to see as an increase before buying.  Many times the price falls below zero right after a buy signal is received.
+* "marketmultibuycheck" when enabled, bot will perform an additional check on base and quote balance to prevent multiple buys.
+        It has been determined that some market pairs have problem API responses which can create a multiple buy issue.
+        Please Note:  "marketmultibuycheck" will conflict with configurations that use "sellpercent".
 
 Sell signal:
 
@@ -383,7 +393,6 @@ Sell signal:
 
 Special sell cases:
 
-* "buymaxsize" specifies a fixed max amount of the quote currency to buy with
 * "nosellminpcnt" specifies the lower margin limit to not sell above
 * "nosellmaxpcnt" specifies the upper margin limit to not sell below
 * If "sellatloss" is on, bot will sell if price drops below the lower Fibonacci band
