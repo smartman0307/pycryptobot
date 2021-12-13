@@ -73,8 +73,8 @@ class Strategy:
             return False
 
         ## if last_action was set to "WAIT" due to an API problem, do not buy
-        if ( self.state.last_action == "WAIT"):
-            log_text = (f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | last_action is WAIT, do not buy yet")
+        if self.state.last_action == "WAIT":
+            log_text = f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | last_action is WAIT, do not buy yet"
             Logger.warning(log_text)
             return False
 
@@ -83,11 +83,6 @@ class Strategy:
             log_text = f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | EMA, MACD indicators are disabled"
             Logger.warning(log_text)
 
-            return False
-
-        # initial funds check
-        if self.app.enableinsufficientfundslogging and self.app.insufficientfunds:
-            # Logger.warning(f"{str(now)} | Insufficient funds, ignoring buy signal.")
             return False
 
         # criteria for a buy signal 1
