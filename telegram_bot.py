@@ -176,13 +176,12 @@ class TelegramBot(TelegramBotBase):
 
         if os.path.isfile(os.path.join(self.datafolder, "telegram_data", "data.json")):
             self.helper.read_data()
-            if "trades" not in self.helper.data:
-                self.helper.data.update({"trades": {}})
             if "markets" not in self.helper.data:
                 self.helper.data.update({"markets": {}})
+                self.helper.write_data()
             if "scannerexceptions" not in self.helper.data:
                 self.helper.data.update({"scannerexceptions": {}})
-            self.helper.write_data()
+                self.helper.write_data()
         else:
             ds = {"trades": {}, "markets": {}, "scannerexceptions": {}}
             self.helper.data = ds
@@ -246,7 +245,7 @@ class TelegramBot(TelegramBotBase):
             return ConversationHandler.END
 
         if self.exchange in ("coinbasepro", "kucoin"):
-            p = re.compile(r"^[0-9A-Z]{1,20}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[1-9A-Z]{2,9}\-[1-9A-Z]{2,5}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format", reply_markup=ReplyKeyboardRemove()
@@ -254,7 +253,7 @@ class TelegramBot(TelegramBotBase):
                 # self.newbot_exchange(update, context)
                 return False
         elif self.exchange == "binance":
-            p = re.compile(r"^[A-Z0-9]{4,25}$")
+            p = re.compile(r"^[A-Z0-9]{5,13}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format.", reply_markup=ReplyKeyboardRemove()
@@ -408,7 +407,7 @@ class TelegramBot(TelegramBotBase):
             return ConversationHandler.END
 
         if self.exchange == "coinbasepro" or self.exchange == "kucoin":
-            p = re.compile(r"^[0-9A-Z]{1,20}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format", reply_markup=ReplyKeyboardRemove()
@@ -416,7 +415,7 @@ class TelegramBot(TelegramBotBase):
                 self.stats_exchange_received(update, context)
                 return None
         elif self.exchange == "binance":
-            p = re.compile(r"^[A-Z0-9]{4,25}$")
+            p = re.compile(r"^[A-Z0-9]{5,12}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format.", reply_markup=ReplyKeyboardRemove()
@@ -633,7 +632,7 @@ class TelegramBot(TelegramBotBase):
             )
             if "margin" not in self.helper.data:
                 logger.info("deleting %s", jfile)
-                os.remove(os.path.join(self.datafolder, "telegram_data", f"{jfile}.json"))
+                os.remove(os.path.join(self.datafolder, "telegram_data", jfile))
                 continue
             if (
                 self.helper.data["botcontrol"]["status"] == "active"
@@ -651,7 +650,7 @@ class TelegramBot(TelegramBotBase):
                 and last_modified.seconds != 86399
             ):
                 logger.info("deleting %s %s", jfile, str(last_modified.seconds))
-                os.remove(os.path.join(self.datafolder, "telegram_data", f"{jfile}.json"))
+                os.remove(os.path.join(self.datafolder, "telegram_data", jfile))
 
     def ExceptionExchange(self, update, context):
         """start new bot ask which exchange"""
@@ -853,40 +852,6 @@ class TelegramBot(TelegramBotBase):
                 sleep(30)
                 update.message.reply_text("Pausing before next set", parse_mode="HTML")
 
-    def getBotList(self, update, context):
-        if not self._checkifallowed(context._user_id_and_data[0], update):
-            return None
-
-        query = update.callback_query
-        try:
-            query.answer()
-        except:
-            pass
-
-        buttons = []
-
-        for market in self.helper.getActiveBotList("all"):
-            while self.helper.read_data(market) == False:
-                sleep(0.2)
-
-            if "botcontrol" in self.helper.data:
-                buttons.append(InlineKeyboardButton(market, callback_data=f"bot_{market}"))
-
-        if len(buttons) > 0:
-            try:
-                query.edit_message_text("<b>Select a market</b>",
-                    reply_markup=self.control._sortInlineButtons(buttons, "bot"),
-                    parse_mode="HTML")
-            except:
-                update.effective_message.reply_html(
-                    "<b>Select a market</b>",
-                    reply_markup=self.control._sortInlineButtons(buttons, "bot"))
-        else:
-            try:
-                query.edit_message_text("<b>No bots found.</b>", parse_mode="HTML")
-            except:
-                update.effective_message.reply_html(f"<b>No bots found.</b>")
-
     #     def UpdateBuyMaxSize(self, update, context):
     #
     #         self.helper.read_data("config.json")
@@ -966,7 +931,7 @@ def main():
 
     dp.add_handler(CommandHandler("reopen", botconfig.StartOpenOrderBots))
 
-    dp.add_handler(CommandHandler("ex", botconfig.getBotList))
+    # dp.add_handler(CommandHandler("exit", botconfig.ExitBot))
 
     dp.add_handler(CommandHandler("statsgroup", botconfig.statstwo))
     # Response to Question handler

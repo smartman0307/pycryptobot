@@ -8,13 +8,6 @@ Upgrade version:
 Upgrade library dependencies (if required):
 - python3 -m pip install -r requirements.txt -U
 
-## [4.6.x] - 2021-12-xx
-
-- change tgbot manual buy/sell check
-- fix error when saving trade data for the first time
-- Add all option to Sell command
-- Add unit tests for TG Bot
-
 ## [4.6.1] - 2021-12-09
 
 - Add trailingbuypcnt as config option with a default of 0 and follow price lower.  See README for details.
