@@ -415,9 +415,9 @@ def executeJob(
         else:
             price = float(df_last["close"].values[0])
 
-        if price < 0.00000001:
+        if price < 0.000001:
             raise Exception(
-                f"{_app.getMarket()} is unsuitable for trading, quote price is less than 0.00000001!"
+                f"{_app.getMarket()} is unsuitable for trading, quote price is less than 0.000001!"
             )
 
         # technical indicators
@@ -567,7 +567,7 @@ def executeJob(
             if _state.action == "BUY":
                 immediate_action = True
 
-        if not _app.isSimulation() and _app.enableTelegramBotControl():
+        if _state.action == "WAIT":
             manual_buy_sell = telegram_bot.checkmanualbuysell()
             if not manual_buy_sell == "WAIT":
                 _state.action = manual_buy_sell

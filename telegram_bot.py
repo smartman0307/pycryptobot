@@ -245,7 +245,7 @@ class TelegramBot(TelegramBotBase):
             return ConversationHandler.END
 
         if self.exchange in ("coinbasepro", "kucoin"):
-            p = re.compile(r"^[0-9A-Z]{1,20}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[1-9A-Z]{2,9}\-[1-9A-Z]{2,5}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format", reply_markup=ReplyKeyboardRemove()
@@ -253,7 +253,7 @@ class TelegramBot(TelegramBotBase):
                 # self.newbot_exchange(update, context)
                 return False
         elif self.exchange == "binance":
-            p = re.compile(r"^[A-Z0-9]{4,25}$")
+            p = re.compile(r"^[A-Z0-9]{5,13}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format.", reply_markup=ReplyKeyboardRemove()
@@ -407,7 +407,7 @@ class TelegramBot(TelegramBotBase):
             return ConversationHandler.END
 
         if self.exchange == "coinbasepro" or self.exchange == "kucoin":
-            p = re.compile(r"^[0-9A-Z]{1,20}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format", reply_markup=ReplyKeyboardRemove()
@@ -415,7 +415,7 @@ class TelegramBot(TelegramBotBase):
                 self.stats_exchange_received(update, context)
                 return None
         elif self.exchange == "binance":
-            p = re.compile(r"^[A-Z0-9]{4,25}$")
+            p = re.compile(r"^[A-Z0-9]{5,12}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format.", reply_markup=ReplyKeyboardRemove()
@@ -632,7 +632,7 @@ class TelegramBot(TelegramBotBase):
             )
             if "margin" not in self.helper.data:
                 logger.info("deleting %s", jfile)
-                os.remove(os.path.join(self.datafolder, "telegram_data", jfile))
+                os.remove(os.path.join(self.datafolder, "telegram_data", f"{jfile}.json"))
                 continue
             if (
                 self.helper.data["botcontrol"]["status"] == "active"
@@ -650,7 +650,7 @@ class TelegramBot(TelegramBotBase):
                 and last_modified.seconds != 86399
             ):
                 logger.info("deleting %s %s", jfile, str(last_modified.seconds))
-                os.remove(os.path.join(self.datafolder, "telegram_data", jfile))
+                os.remove(os.path.join(self.datafolder, "telegram_data", f"{jfile}.json"))
 
     def ExceptionExchange(self, update, context):
         """start new bot ask which exchange"""
