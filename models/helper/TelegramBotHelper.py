@@ -121,13 +121,6 @@ class TelegramBotHelper:
             self.data.update(addmarket)
             self._write_data()
 
-    def updatewatchdogping(self):
-        if not self.app.isSimulation() and self.app.enableTelegramBotControl():
-            self._read_data()
-            if "botcontrol" in self.data:
-                self.data["botcontrol"]["watchdog_ping"] =  datetime.now().isoformat()
-                self._write_data()
-    
     def addinfo(
         self,
         message: str = "",
@@ -179,19 +172,20 @@ class TelegramBotHelper:
 
     def checkmanualbuysell(self) -> str:
         result = "WAIT"
-        self._read_data()
+        if not self.app.isSimulation() and self.app.enableTelegramBotControl():
+            self._read_data()
 
-        if len(self.data["botcontrol"]) > 0:
-            if self.data["botcontrol"]["manualsell"]:
-                self.data["botcontrol"]["manualsell"] = False
-                result = "SELL"
-                self._write_data()
+            if len(self.data["botcontrol"]) > 0:
+                if self.data["botcontrol"]["manualsell"]:
+                    self.data["botcontrol"]["manualsell"] = False
+                    result = "SELL"
+                    self._write_data()
 
-        if len(self.data["botcontrol"]) > 0:
-            if self.data["botcontrol"]["manualbuy"]:
-                self.data["botcontrol"]["manualbuy"] = False
-                result = "BUY"
-                self._write_data()
+            if len(self.data["botcontrol"]) > 0:
+                if self.data["botcontrol"]["manualbuy"]:
+                    self.data["botcontrol"]["manualbuy"] = False
+                    result = "BUY"
+                    self._write_data()
 
         return result
 
