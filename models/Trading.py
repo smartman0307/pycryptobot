@@ -681,7 +681,7 @@ class TechnicalAnalysis:
         self.df["close_pc"] = self.changePct()
 
         # cumulative returns
-        self.df["close_cpc"] = (1 + self.df["close_pc"]).cumprod() - 1
+        self.df["close_cpc"] = (1 + self.df["close_pc"]).cumprod()
 
     def cumulativeMovingAverage(self) -> float:
         """Calculates the Cumulative Moving Average (CMA)"""
@@ -835,25 +835,19 @@ class TechnicalAnalysis:
     def onBalanceVolume(self) -> ndarray:
         """Calculate On-Balance Volume (OBV)"""
 
-        try:
-            return where(
-                self.df["close"] == self.df["close"].shift(1),
-                0,
+        return where(
+            self.df["close"] == self.df["close"].shift(1),
+            0,
+            where(
+                self.df["close"] > self.df["close"].shift(1),
+                self.df["volume"],
                 where(
-                    self.df["close"] > self.df["close"].shift(1),
-                    self.df["volume"],
-                    where(
-                        self.df["close"] < self.df["close"].shift(1),
-                        -self.df["volume"].apply(lambda x: float(x)),
-                        self.df.iloc[0]["volume"],
-                    ),
+                    self.df["close"] < self.df["close"].shift(1),
+                    -self.df["volume"],
+                    self.df.iloc[0]["volume"],
                 ),
-            ).cumsum()
-        except:
-            return 0
-            pass
-
-        #Logger.info(f"Close: {self.df['close']} Close -1: {self.df['close'].shift(1)} On Balance Volume: {OBV}")
+            ),
+        ).cumsum()
 
     def addOBV(self) -> None:
         """Add the On-Balance Volume (OBV) to the DataFrame"""
@@ -1461,30 +1455,22 @@ class TechnicalAnalysis:
     def __isSupport(self, df, i) -> bool:
         """Is support level? (private function)"""
 
-        try:
-            c1 = df["low"][i] < df["low"][i - 1]
-            c2 = df["low"][i] < df["low"][i + 1]
-            c3 = df["low"][i + 1] < df["low"][i + 2]
-            c4 = df["low"][i - 1] < df["low"][i - 2]
-            support = c1 and c2 and c3 and c4
-            return support
-        except:
-            support = False
-            return support
+        c1 = df["low"][i] < df["low"][i - 1]
+        c2 = df["low"][i] < df["low"][i + 1]
+        c3 = df["low"][i + 1] < df["low"][i + 2]
+        c4 = df["low"][i - 1] < df["low"][i - 2]
+        support = c1 and c2 and c3 and c4
+        return support
 
     def __isResistance(self, df, i) -> bool:
         """Is resistance level? (private function)"""
 
-        try:  
-            c1 = df["high"][i] > df["high"][i - 1]
-            c2 = df["high"][i] > df["high"][i + 1]
-            c3 = df["high"][i + 1] > df["high"][i + 2]
-            c4 = df["high"][i - 1] > df["high"][i - 2]
-            resistance = c1 and c2 and c3 and c4
-            return resistance
-        except:
-            resistance = False
-            return resistance
+        c1 = df["high"][i] > df["high"][i - 1]
+        c2 = df["high"][i] > df["high"][i + 1]
+        c3 = df["high"][i + 1] > df["high"][i + 2]
+        c4 = df["high"][i - 1] > df["high"][i - 2]
+        resistance = c1 and c2 and c3 and c4
+        return resistance
 
     def __isFarFromLevel(self, l) -> float:
         """Is far from support level? (private function)"""

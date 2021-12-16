@@ -1191,10 +1191,9 @@ class WebSocket(AuthAPIBase):
         self.start_time = datetime.now()
 
     def _keepalive(self, interval=30):
-        if (self.ws is not None) and (hasattr(self.ws,"connected")):
-            while self.ws.connected:
-                self.ws.ping("keepalive")
-                time.sleep(interval)
+        while self.ws.connected:
+            self.ws.ping("keepalive")
+            time.sleep(interval)
 
     def _listen(self):
         self.keepalive.start()
