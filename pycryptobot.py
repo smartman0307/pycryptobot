@@ -478,7 +478,7 @@ def executeJob(
         _state.action = strategy.getAction(_app, price, current_sim_date)
 
         immediate_action = False
-        margin, profit, sell_fee = 0, 0, 0
+        margin, profit, sell_fee, change_pcnt_high = 0, 0, 0, 0
 
         # Reset the TA so that the last record is the current sim date
         # To allow for calculations to be done on the sim date being processed
@@ -560,13 +560,14 @@ def executeJob(
         # handle overriding wait actions (e.g. do not sell if sell at loss disabled!, do not buy in bull if bull only)
         if strategy.isWaitTrigger(_app, margin, goldencross):
             _state.action = "WAIT"
+            _state.trailing_buy = 0
             immediate_action = False
 
         if _app.enableImmediateBuy():
             if _state.action == "BUY":
                 immediate_action = True
 
-        if _state.action == "WAIT":
+        if not _app.isSimulation() and _app.enableTelegramBotControl():
             manual_buy_sell = telegram_bot.checkmanualbuysell()
             if not manual_buy_sell == "WAIT":
                 _state.action = manual_buy_sell
@@ -1159,6 +1160,7 @@ def executeJob(
                                 _state.last_buy_size,
                                 _app.getBuyPercent(),
                             )
+                            _state.trailing_buy = 0
 
                             now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
                             _app.notifyTelegram(
@@ -1202,7 +1204,6 @@ def executeJob(
                             )
                             state.last_api_call_datetime -= timedelta(seconds=60)
                             telegram_bot.add_open_order()
-                            _state.trailing_buy = 0
                         except:
                             Logger.warning("Unable to place order")
                             state.last_api_call_datetime -= timedelta(seconds=60)

@@ -22,12 +22,11 @@ class TelegramActions():
 
     def _getMarginText(self, market):
         light_icon, margin_icon = ("\U0001F7E2" if "-" not in self.helper.data["margin"] else "\U0001F534", "\U0001F973" if "-" not in self.helper.data["margin"] else "\U0001F97A")
-        # result = f"\U0001F4C8 <b>{market}</b> {margin_icon}  <i>Current Margin: {self.helper.data['margin']} \U0001F4B0 (P/L): {self.helper.data['delta']}\n" \
-        # f"\U0001F4B0 (P/L): {self.helper.data['delta']}\n(TSL Trg): {self.helper.data['trailingstoplosstriggered']}  --  (TSL Change): {self.helper.data['change_pcnt_high']}</i>\n"
+
         result = f"{light_icon} <b>{market}</b>\n" \
                     f"{margin_icon} Margin: {self.helper.data['margin']}  " \
                     f"\U0001F4B0 P/L: {self.helper.data['delta']}\n" \
-                    f"TSL Trg: {self.helper.data['trailingstoplosstriggered']}\n" \
+                    f"TSL Trg: {self.helper.data['trailingstoplosstriggered']}  " \
                     f"TSL Change: {float(self.helper.data['change_pcnt_high']).__round__(4)}\n"
         return result
 
@@ -83,16 +82,33 @@ class TelegramActions():
         """create the manual sell order"""
         query = update.callback_query
         logger.info("called sellresponse - %s", query.data)
-        while self.helper.read_data(query.data.replace("confirm_sell_", "")) == False:
-            sleep(0.2)
 
-        if "botcontrol" in self.helper.data:
-            self.helper.data["botcontrol"]["manualsell"] = True
-            self.helper.write_data(query.data.replace("confirm_sell_", ""))
-            query.edit_message_text(
-                f"Selling: {query.data.replace('confirm_sell_', '').replace('.json','')}\n<i>Please wait for sale notification...</i>",
-                parse_mode="HTML",
-            )
+        if query.data.__contains__("all"):
+            query.edit_message_text("<b><i>Initiating sell orders..</i></b>", parse_mode="HTML")
+            for market in self.helper.getActiveBotList("active"):
+                while self.helper.read_data(market) == False:
+                    sleep(0.2)
+
+                if "margin" in self.helper.data and self.helper.data["margin"] != " ":
+                    while self.helper.read_data(market) == False:
+                        sleep(0.2)
+
+                    if "botcontrol" in self.helper.data:
+                        self.helper.data["botcontrol"]["manualsell"] = True
+                        self.helper.write_data(market)
+                        update.effective_message.reply_html(
+                            f"Selling: {market}\n<i>Please wait for sale notification...</i>")
+                sleep(0.2)
+        else:
+            while self.helper.read_data(query.data.replace("confirm_sell_", "")) == False:
+                sleep(0.2)
+            if "botcontrol" in self.helper.data:
+                self.helper.data["botcontrol"]["manualsell"] = True
+                self.helper.write_data(query.data.replace("confirm_sell_", ""))
+                query.edit_message_text(
+                    f"Selling: {query.data.replace('confirm_sell_', '').replace('.json','')}\n<i>Please wait for sale notification...</i>",
+                    parse_mode="HTML",
+                )
 
     def buyresponse(self, update):
         """create the manual buy order"""
@@ -111,8 +127,9 @@ class TelegramActions():
 
     def showconfigresponse(self, update):
         """display config settings based on exchanged selected"""
-        with open(os.path.join(self.helper.config_file), "r", encoding="utf8") as json_file:
-            self.helper.config = json.load(json_file)
+        self.helper.read_config()
+        # with open(os.path.join(self.helper.config_file), "r", encoding="utf8") as json_file:
+        #     self.helper.config = json.load(json_file)
 
         query = update.callback_query
         logger.info("called showconfigresponse - %s", query.data)
@@ -184,7 +201,7 @@ class TelegramActions():
         oOutput = []
         closedbotCount = 0
         openbotCount = 0
-        print(self.helper.getActiveBotList())
+        # print(self.helper.getActiveBotList())
         for market in self.helper.getActiveBotList():
             while self.helper.read_data(market) == False:
                 sleep(0.2)
