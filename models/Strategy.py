@@ -1,7 +1,6 @@
 from datetime import datetime
 from pandas import DataFrame
 from models.PyCryptoBot import PyCryptoBot
-from models.PyCryptoBot import truncate as _truncate
 from models.AppState import AppState
 from models.helper.LogHelper import Logger
 import sys
@@ -30,10 +29,6 @@ class Strategy:
     def isBuySignal(
         self, app, price, now: datetime = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
     ) -> bool:
-
-        # set to true for verbose debugging
-        debug = False
-
         # required technical indicators or candle sticks for buy signal strategy
         required_indicators = [
             "ema12gtema26co",
@@ -78,8 +73,8 @@ class Strategy:
             return False
 
         ## if last_action was set to "WAIT" due to an API problem, do not buy
-        if ( self.state.last_action == "WAIT"):
-            log_text = (f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | last_action is WAIT, do not buy yet")
+        if self.state.last_action == "WAIT":
+            log_text = f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | last_action is WAIT, do not buy yet"
             Logger.warning(log_text)
             return False
 
@@ -88,11 +83,6 @@ class Strategy:
             log_text = f"{str(now)} | {self.app.getMarket()} | {self.app.printGranularity()} | EMA, MACD indicators are disabled"
             Logger.warning(log_text)
 
-            return False
-
-        # initial funds check
-        if self.app.enableinsufficientfundslogging and self.app.insufficientfunds:
-            # Logger.warning(f"{str(now)} | Insufficient funds, ignoring buy signal.")
             return False
 
         # criteria for a buy signal 1
@@ -120,11 +110,10 @@ class Strategy:
             and self.state.last_action != "BUY"
         ):  # required for all strategies
 
-            if debug:
-                Logger.debug("*** Buy Signal ***")
-                for indicator in required_indicators:
-                    Logger.debug(f"{indicator}: {self._df_last[indicator].values[0]}")
-                Logger.debug(f"last_action: {self.state.last_action}")
+            Logger.debug("*** Buy Signal ***")
+            for indicator in required_indicators:
+                Logger.debug(f"{indicator}: {self._df_last[indicator].values[0]}")
+            Logger.debug(f"last_action: {self.state.last_action}")
 
             return True
 
@@ -150,19 +139,16 @@ class Strategy:
             and self.state.last_action != "BUY"
         ):  # required for all strategies
 
-            if debug:
-                Logger.debug("*** Buy Signal ***")
-                for indicator in required_indicators:
-                    Logger.debug(f"{indicator}: {self._df_last[indicator].values[0]}")
-                Logger.debug(f"last_action: {self.state.last_action}")
+            Logger.debug("*** Buy Signal ***")
+            for indicator in required_indicators:
+                Logger.debug(f"{indicator}: {self._df_last[indicator].values[0]}")
+            Logger.debug(f"last_action: {self.state.last_action}")
 
             return True
 
         return False
 
     def isSellSignal(self) -> bool:
-        # set to true for verbose debugging
-        debug = False
         # required technical indicators or candle sticks for buy signal strategy
         required_indicators = ["ema12ltema26co", "macdltsignal"]
 
@@ -180,11 +166,10 @@ class Strategy:
             and self.state.last_action not in ["", "SELL"]
         ):
 
-            if debug:
-                Logger.debug("*** Sell Signal ***")
-                for indicator in required_indicators:
-                    Logger.debug(f"{indicator}: {self._df_last[indicator].values[0]}")
-                Logger.debug(f"last_action: {self.state.last_action}")
+            Logger.debug("*** Sell Signal ***")
+            for indicator in required_indicators:
+                Logger.debug(f"{indicator}: {self._df_last[indicator].values[0]}")
+            Logger.debug(f"last_action: {self.state.last_action}")
 
             return True
 
@@ -204,16 +189,16 @@ class Strategy:
         debug = False
 
         if debug:
-            Logger.debug("\n*** isSellTrigger ***\n")
-            Logger.debug("-- ignoring sell signal --")
-            Logger.debug(
+            Logger.warning("\n*** isSellTrigger ***\n")
+            Logger.warning("-- ignoring sell signal --")
+            Logger.warning(
                 f"self.app.nosellminpcnt is None (nosellminpcnt: {self.app.nosellminpcnt})"
             )
-            Logger.debug(f"margin >= self.app.nosellminpcnt (margin: {margin})")
-            Logger.debug(
+            Logger.warning(f"margin >= self.app.nosellminpcnt (margin: {margin})")
+            Logger.warning(
                 f"margin <= self.app.nosellmaxpcnt (nosellmaxpcnt: {self.app.nosellmaxpcnt})"
             )
-            Logger.debug("\n")
+            Logger.warning("\n")
 
         if (
             (self.app.nosellminpcnt is not None) and (margin >= self.app.nosellminpcnt)
@@ -228,23 +213,23 @@ class Strategy:
             return False
 
         if debug:
-            Logger.debug("\n*** isSellTrigger ***\n")
-            Logger.debug("-- loss failsafe sell at fibonacci band --")
-            Logger.debug(
+            Logger.warning("\n*** isSellTrigger ***\n")
+            Logger.warning("-- loss failsafe sell at fibonacci band --")
+            Logger.warning(
                 f"self.app.disableFailsafeFibonacciLow() is False (actual: {self.app.disableFailsafeFibonacciLow()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"self.app.allowSellAtLoss() is True (actual: {self.app.allowSellAtLoss()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"self.app.sellLowerPcnt() is None (actual: {self.app.sellLowerPcnt()})"
             )
-            Logger.debug(f"self.state.fib_low {self.state.fib_low} > 0")
-            Logger.debug(f"self.state.fib_low {self.state.fib_low} >= {float(price)}")
-            Logger.debug(
+            Logger.warning(f"self.state.fib_low {self.state.fib_low} > 0")
+            Logger.warning(f"self.state.fib_low {self.state.fib_low} >= {float(price)}")
+            Logger.warning(
                 f"(self.app.allowSellAtLoss() is True (actual: {self.app.allowSellAtLoss()}) or margin ({margin}) > 0)"
             )
-            Logger.debug("\n")
+            Logger.warning("\n")
 
         # loss failsafe sell at fibonacci band
         if (
@@ -265,20 +250,20 @@ class Strategy:
             return True
 
         if debug:
-            Logger.debug("-- loss failsafe sell at trailing_stop_loss --")
-            Logger.debug(
+            Logger.warning("-- loss failsafe sell at trailing_stop_loss --")
+            Logger.warning(
                 f"self.app.trailingStopLoss() != None (actual: {self.app.trailingStopLoss()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"change_pcnt_high ({change_pcnt_high}) < self.app.trailingStopLoss() ({self.app.trailingStopLoss()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"margin ({margin}) > self.app.trailingStopLossTrigger() ({self.app.trailingStopLossTrigger()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"(self.app.allowSellAtLoss() is True (actual: {self.app.allowSellAtLoss()}) or margin ({margin}) > 0)"
             )
-            Logger.debug("\n")
+            Logger.warning("\n")
 
         # loss failsafe sell at trailing_stop_loss
         if (
@@ -300,23 +285,23 @@ class Strategy:
             return True
 
         if debug:
-            Logger.debug("-- loss failsafe sell at sell_lower_pcnt --")
-            Logger.debug(
+            Logger.warning("-- loss failsafe sell at sell_lower_pcnt --")
+            Logger.warning(
                 f"self.app.disableFailsafeLowerPcnt() is False (actual: {self.app.disableFailsafeLowerPcnt()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"and self.app.allowSellAtLoss() is True (actual: {self.app.allowSellAtLoss()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"and self.app.sellLowerPcnt() != None (actual: {self.app.sellLowerPcnt()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"and margin ({margin}) < self.app.sellLowerPcnt() ({self.app.sellLowerPcnt()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"(self.app.allowSellAtLoss() is True (actual: {self.app.allowSellAtLoss()}) or margin ({margin}) > 0)"
             )
-            Logger.debug("\n")
+            Logger.warning("\n")
 
         # loss failsafe sell at sell_lower_pcnt
         if (
@@ -336,20 +321,20 @@ class Strategy:
             return True
 
         if debug:
-            Logger.debug("-- profit bank at sell_upper_pcnt --")
-            Logger.debug(
+            Logger.warning("-- profit bank at sell_upper_pcnt --")
+            Logger.warning(
                 f"self.app.disableProfitbankUpperPcnt() is False (actual: {self.app.disableProfitbankUpperPcnt()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"and self.app.sellUpperPcnt() != None (actual: {self.app.sellUpperPcnt()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"and margin ({margin}) > self.app.sellUpperPcnt() ({self.app.sellUpperPcnt()})"
             )
-            Logger.debug(
+            Logger.warning(
                 f"(self.app.allowSellAtLoss() is True (actual: {self.app.allowSellAtLoss()}) or margin ({margin}) > 0)"
             )
-            Logger.debug("\n")
+            Logger.warning("\n")
 
         # profit bank at sell_upper_pcnt
         if (
@@ -369,16 +354,16 @@ class Strategy:
             return True
 
         if debug:
-            Logger.debug("-- profit bank when strong reversal detected --")
-            Logger.debug(
+            Logger.warning("-- profit bank when strong reversal detected --")
+            Logger.warning(
                 f"self.app.sellAtResistance() is True (actual {self.app.sellAtResistance()})"
             )
-            Logger.debug(f"and price ({price}) > 0")
-            Logger.debug(f"and price ({price}) >= price_exit ({price_exit})")
-            Logger.debug(
+            Logger.warning(f"and price ({price}) > 0")
+            Logger.warning(f"and price ({price}) >= price_exit ({price_exit})")
+            Logger.warning(
                 f"(self.app.allowSellAtLoss() is True (actual: {self.app.allowSellAtLoss()}) or margin ({margin}) > 0)"
             )
-            Logger.debug("\n")
+            Logger.warning("\n")
 
         # profit bank when strong reversal detected
         if (
@@ -406,18 +391,18 @@ class Strategy:
         debug = False
 
         if debug and self.state.action != "WAIT":
-            Logger.debug("\n*** isWaitTrigger ***\n")
+            Logger.warning("\n*** isWaitTrigger ***\n")
 
         if debug and self.state.action == "BUY":
-            Logger.debug(
+            Logger.warning(
                 "-- if bear market and bull only return true to abort buy --"
             )
-            Logger.debug(f"self.state.action == 'BUY' (actual: {self.state.action})")
-            Logger.debug(
+            Logger.warning(f"self.state.action == 'BUY' (actual: {self.state.action})")
+            Logger.warning(
                 f"and self.app.disableBullOnly() is True (actual: {self.app.disableBullOnly()})"
             )
-            Logger.debug(f"and goldencross is False (actual: {goldencross})")
-            Logger.debug("\n")
+            Logger.warning(f"and goldencross is False (actual: {goldencross})")
+            Logger.warning("\n")
 
         # if bear market and bull only return true to abort buy
         if (
@@ -430,13 +415,13 @@ class Strategy:
             return True
 
         if debug and self.state.action == "SELL":
-            Logger.debug("-- configuration specifies to not sell at a loss --")
-            Logger.debug(f"self.state.action == 'SELL' (actual: {self.state.action})")
-            Logger.debug(
+            Logger.warning("-- configuration specifies to not sell at a loss --")
+            Logger.warning(f"self.state.action == 'SELL' (actual: {self.state.action})")
+            Logger.warning(
                 f"and self.app.allowSellAtLoss() is False (actual: {self.app.allowSellAtLoss()})"
             )
-            Logger.debug(f"and margin ({margin}) <= 0")
-            Logger.debug("\n")
+            Logger.warning(f"and margin ({margin}) <= 0")
+            Logger.warning("\n")
 
         # configuration specifies to not sell at a loss
         if (
@@ -452,17 +437,17 @@ class Strategy:
             return True
 
         if debug and self.state.action == "SELL":
-            Logger.debug(
+            Logger.warning(
                 "-- configuration specifies not to sell within min and max margin percent bounds --"
             )
-            Logger.debug(f"self.state.action == 'SELL' (actual: {self.state.action})")
-            Logger.debug(
+            Logger.warning(f"self.state.action == 'SELL' (actual: {self.state.action})")
+            Logger.warning(
                 f"(self.app.nosellminpcnt is not None (actual: {self.app.nosellminpcnt})) and (margin ({margin}) >= self.app.nosellminpcnt ({self.app.nosellminpcnt}))"
             )
-            Logger.debug(
+            Logger.warning(
                 f"(self.app.nosellmaxpcnt is not None (actual: {self.app.nosellmaxpcnt})) and (margin ({margin}) <= self.app.nosellmaxpcnt ({self.app.nosellmaxpcnt}))"
             )
-            Logger.debug("\n")
+            Logger.warning("\n")
 
         # configuration specifies not to sell within min and max margin percent bounds
         if (
@@ -484,46 +469,6 @@ class Strategy:
             return True
 
         return False
-
-    def checkTrailingBuy(self, app, state, price: float = 0.0):
-        # If buy signal, save the price and check if it decreases before buying.
-        trailing_buy_logtext = ""
-        waitpcnttext = ""
-        if state.trailing_buy == 0:
-            state.waiting_buy_price = price
-            pricechange = 0
-        elif state.trailing_buy == 1 and state.waiting_buy_price > 0:
-            pricechange = (
-                (price - state.waiting_buy_price) / state.waiting_buy_price * 100
-            )
-            if price < state.waiting_buy_price:
-                state.waiting_buy_price = price
-                waitpcnttext += f"Price decreased - resetting wait price. "
-
-        waitpcnttext += f"** {app.getMarket()} - "
-        if pricechange < app.getTrailingBuyPcnt(): # get pcnt from config, if not, use 0%
-            state.action = "WAIT"
-            state.trailing_buy = 1
-            if app.getTrailingBuyPcnt() > 0:
-                trailing_buy_logtext = f" - Wait Chg: {_truncate(pricechange,2)}%/{app.getTrailingBuyPcnt()}%"
-                waitpcnttext += f"Waiting to buy until {state.waiting_buy_price} increases {app.getTrailingBuyPcnt()}% - change {_truncate(pricechange,2)}%"
-            else:
-                trailing_buy_logtext = f" - Wait Chg: {_truncate(pricechange,2)}%"
-                waitpcnttext += f"Waiting to buy until {state.waiting_buy_price} stops decreasing - change {_truncate(pricechange,2)}%"
-        else:
-            state.action = "BUY"
-            state.trailing_buy = 1
-            trailing_buy_logtext = f" - Ready Chg: {_truncate(pricechange,2)}%/{app.getTrailingBuyPcnt()}%"
-            waitpcnttext += f"Ready to buy. {state.waiting_buy_price} change of {_truncate(pricechange,2)}% is above setting of {app.getTrailingBuyPcnt()}%"
-
-        if app.isVerbose() and (
-            not app.isSimulation()
-            or (app.isSimulation() and not app.simResultOnly())
-        ):
-            Logger.info(waitpcnttext)
-
-        return state.action, state.trailing_buy, trailing_buy_logtext
-
 
     def getAction(self, app, price, dt):
         if self.isBuySignal(app, price, dt):
