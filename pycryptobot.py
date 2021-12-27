@@ -384,7 +384,8 @@ def executeJob(
                     executeJob,
                     (sc, _app, _state, _technical_analysis, _websocket),
                 )
-
+    # change_pcnt_high set to 0 here to prevent errors on some tokens for some users.
+    # Need to track down main source of error.  This allows bots to launch in those instances.
     if len(df_last) > 0:
         now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -478,7 +479,7 @@ def executeJob(
         _state.action = strategy.getAction(_app, price, current_sim_date)
 
         immediate_action = False
-        margin, profit, sell_fee = 0, 0, 0
+        margin, profit, sell_fee, change_pcnt_high = 0, 0, 0, 0
 
         # Reset the TA so that the last record is the current sim date
         # To allow for calculations to be done on the sim date being processed
@@ -558,7 +559,7 @@ def executeJob(
                 immediate_action = True
 
         # handle overriding wait actions (e.g. do not sell if sell at loss disabled!, do not buy in bull if bull only)
-        if strategy.isWaitTrigger(_app, margin, goldencross):
+        if not immediate_action and strategy.isWaitTrigger(_app, margin, goldencross):
             _state.action = "WAIT"
             immediate_action = False
 
@@ -566,7 +567,7 @@ def executeJob(
             if _state.action == "BUY":
                 immediate_action = True
 
-        if _state.action == "WAIT":
+        if not _app.isSimulation() and _app.enableTelegramBotControl():
             manual_buy_sell = telegram_bot.checkmanualbuysell()
             if not manual_buy_sell == "WAIT":
                 _state.action = manual_buy_sell
@@ -1160,17 +1161,6 @@ def executeJob(
                                 _app.getBuyPercent(),
                             )
 
-                            now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-                            _app.notifyTelegram(
-                                _app.getMarket()
-                                + " ("
-                                + _app.printGranularity()
-                                + ") - "
-                                + now
-                                + "\n"
-                                + "BUY at "
-                                + price_text
-                            )
                             # Logger.debug(resp)
 
                             # display balances
@@ -1194,18 +1184,33 @@ def executeJob(
                             except:
                                 pass
 
-                            Logger.info(
-                                f"{_app.getBaseCurrency()} balance after order: {str(account.basebalance)}"
-                            )
-                            Logger.info(
-                                f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance)}"
-                            )
-                            state.last_api_call_datetime -= timedelta(seconds=60)
-                            telegram_bot.add_open_order()
-                            _state.trailing_buy = 0
                         except:
                             Logger.warning("Unable to place order")
                             state.last_api_call_datetime -= timedelta(seconds=60)
+
+                        Logger.info(
+                            f"{_app.getBaseCurrency()} balance after order: {str(account.basebalance)}"
+                        )
+                        Logger.info(
+                            f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance)}"
+                        )
+
+                        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+                        _app.notifyTelegram(
+                            _app.getMarket()
+                            + " ("
+                            + _app.printGranularity()
+                            + ") - "
+                            + now
+                            + "\n"
+                            + "BUY at "
+                            + price_text
+                        )
+
+                        state.last_api_call_datetime -= timedelta(seconds=60)
+                        telegram_bot.add_open_order()
+                        _state.trailing_buy = 0
+
                     else:
                         Logger.warning(
                             "Unable to place order, insufficient funds or buyminsize has not been reached"
@@ -1334,21 +1339,6 @@ def executeJob(
                     account.quotebalance = float(
                         account.getBalance(_app.getQuoteCurrency())
                     )
-                    _app.notifyTelegram(
-                        _app.getMarket()
-                        + " ("
-                        + _app.printGranularity()
-                        + ") - "
-                        + now
-                        + "\n"
-                        + "SELL at "
-                        + price_text
-                        + " (margin: "
-                        + margin_text
-                        + ", delta: "
-                        + str(round(price - _state.last_buy_price, precision))
-                        + ")"
-                    )
 
                     if not _app.isVerbose():
                         Logger.info(
@@ -1420,6 +1410,23 @@ def executeJob(
                     )
                     Logger.info(
                         f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance)}"
+                    )
+                    _state.prevent_loss = 0
+
+                    _app.notifyTelegram(
+                        _app.getMarket()
+                        + " ("
+                        + _app.printGranularity()
+                        + ") - "
+                        + now
+                        + "\n"
+                        + "SELL at "
+                        + price_text
+                        + " (margin: "
+                        + margin_text
+                        + ", delta: "
+                        + str(round(price - _state.last_buy_price, precision))
+                        + ")"
                     )
 
                     telegram_bot.closetrade(
