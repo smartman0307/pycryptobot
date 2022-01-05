@@ -787,7 +787,7 @@ class TelegramBot(TelegramBotBase):
             return
 
         self.handler._checkScheduledJob(update)
-        logger.info("Start scanning using default scanner? %s", True if self.use_default_scanner == 1 else False)
+        logger.info("Start scanning using default scanner? %s", bool(self.use_default_scanner))
         self.actions.StartMarketScan(
             update,
             True if self.use_default_scanner == 1 else False,
@@ -804,7 +804,7 @@ class TelegramBot(TelegramBotBase):
         if not self._checkifallowed(context._user_id_and_data[0], update):
             return
 
-        self._cleandata
+        self._cleandata()
 
         self.actions.getBotInfo(update)
         update.message.reply_text("Operation Complete")
