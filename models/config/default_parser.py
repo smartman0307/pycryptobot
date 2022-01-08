@@ -280,34 +280,6 @@ def defaultConfigParse(app, config):
         else:
             raise TypeError("sellatloss must be of type int")
 
-    if "preventloss" in config:
-        if isinstance(config["preventloss"], int):
-            if bool(config["preventloss"]):
-                app.preventloss = True
-        else:
-            raise TypeError("preventloss must be of type int")
-
-    if "preventlosstrigger" in config:
-        if isinstance(config["preventlosstrigger"], (int, float)):
-            if config["preventlosstrigger"] is not None:
-                app.preventlosstrigger = float(config["preventlosstrigger"])
-        else:
-            raise TypeError("preventlossmargin must be of type int or float")
-    elif app.preventloss:
-        if app.nosellmaxpcnt is not None:
-            app.preventlosstrigger = app.nosellmaxpcnt
-        else:
-            app.preventlosstrigger = 1
-
-    if "preventlossmargin" in config:
-        if isinstance(config["preventlossmargin"], (int, float)):
-            if config["preventlossmargin"] is not None:
-                app.preventlossmargin = config["preventlossmargin"]
-        else:
-            raise TypeError("preventlossmargin must be of type int or float")
-    elif app.preventloss:
-        app.preventlossmargin = 0.1
-
     if "simresultonly" in config:
         if isinstance(config["simresultonly"], int):
             if bool(config["simresultonly"]):
@@ -324,141 +296,141 @@ def defaultConfigParse(app, config):
 
     if "disablebullonly" in config:
         if isinstance(config["disablebullonly"], int):
-            if config["disablebullonly"] in [0, 1]:
-                app.disablebullonly = bool(config["disablebullonly"])
+            if bool(config["disablebullonly"]):
+                app.disablebullonly = True
         else:
             raise TypeError("disablebullonly must be of type int")
 
     if "disablebuynearhigh" in config:
         if isinstance(config["disablebuynearhigh"], int):
-            if config["disablebuynearhigh"] in [0, 1]:
-                app.disablebuynearhigh = bool(config["disablebuynearhigh"])
+            if bool(config["disablebuynearhigh"]):
+                app.disablebuynearhigh = True
         else:
             raise TypeError("disablebuynearhigh must be of type int")
 
     if "disablebuymacd" in config:
         if isinstance(config["disablebuymacd"], int):
-            if config["disablebuymacd"] in [0, 1]:
-                app.disablebuymacd = bool(config["disablebuymacd"])
+            if bool(config["disablebuymacd"]):
+                app.disablebuymacd = True
         else:
             raise TypeError("disablebuymacd must be of type int")
 
     if "disablebuyema" in config:
         if isinstance(config["disablebuyema"], int):
-            if config["disablebuyema"] in [0, 1]:
-                app.disablebuyema = bool(config["disablebuyema"])
+            if bool(config["disablebuyema"]):
+                app.disablebuyema = True
         else:
             raise TypeError("disablebuyema must be of type int")
 
     if "disablebuyobv" in config:
         if isinstance(config["disablebuyobv"], int):
-            if config["disablebuyobv"] in [0, 1]:
-                app.disablebuyobv = bool(config["disablebuyobv"])
+            if bool(config["disablebuyobv"]):
+                app.disablebuyobv = True
         else:
             raise TypeError("disablebuyobv must be of type int")
 
     if "disablebuyelderray" in config:
         if isinstance(config["disablebuyelderray"], int):
-            if config["disablebuyelderray"] in [0, 1]:
-                app.disablebuyelderray = bool(config["disablebuyelderray"])
+            if bool(config["disablebuyelderray"]):
+                app.disablebuyelderray = True
         else:
             raise TypeError("disablebuyelderray must be of type int")
 
     if "disablefailsafefibonaccilow" in config:
         if isinstance(config["disablefailsafefibonaccilow"], int):
-            if config["disablefailsafefibonaccilow"] in [0,1 ]:
-                app.disablefailsafefibonaccilow = bool(config["disablefailsafefibonaccilow"])
+            if bool(config["disablefailsafefibonaccilow"]):
+                app.disablefailsafefibonaccilow = True
         else:
             raise TypeError("disablefailsafefibonaccilow must be of type int")
 
     if "disablefailsafelowerpcnt" in config:
         if isinstance(config["disablefailsafelowerpcnt"], int):
-            if config["disablefailsafelowerpcnt"] in [0, 1]:
-                app.disablefailsafelowerpcnt = bool(config["disablefailsafelowerpcnt"])
+            if bool(config["disablefailsafelowerpcnt"]):
+                app.disablefailsafelowerpcnt = True
         else:
             raise TypeError("disablefailsafelowerpcnt must be of type int")
 
     if "disableprofitbankupperpcnt" in config:
         if isinstance(config["disableprofitbankupperpcnt"], int):
-            if config["disableprofitbankupperpcnt"] in [0, 1]:
-                app.disableprofitbankupperpcnt = bool(config["disableprofitbankupperpcnt"])
+            if bool(config["disableprofitbankupperpcnt"]):
+                app.disableprofitbankupperpcnt = True
         else:
             raise TypeError("disableprofitbankupperpcnt must be of type int")
 
     if "disableprofitbankreversal" in config:
         if isinstance(config["disableprofitbankreversal"], int):
-            if config["disableprofitbankreversal"] in [0, 1]:
-                app.disableprofitbankreversal = bool(config["disableprofitbankreversal"])
+            if bool(config["disableprofitbankreversal"]):
+                app.disableprofitbankreversal = True
         else:
             raise TypeError("disableprofitbankreversal must be of type int")
 
     if "disabletelegram" in config:
         if isinstance(config["disabletelegram"], int):
-            if config["disabletelegram"] in [0, 1]:
-                app.disabletelegram = bool(config["disabletelegram"])
+            if bool(config["disabletelegram"]):
+                app.disabletelegram = True
         else:
             raise TypeError("disabletelegram must be of type int")
 
     if "telegramtradesonly" in config:
         if isinstance(config["telegramtradesonly"], int):
-            if config["telegramtradesonly"] in [0, 1]:
-                app.telegramtradesonly = bool(config["telegramtradesonly"])
+            if bool(config["telegramtradesonly"]):
+                app.telegramtradesonly = True
         else:
             raise TypeError("telegramtradesonly must be of type int")
 
     if "disabletelegramerrormsgs" in config:
         if isinstance(config["disabletelegramerrormsgs"], int):
-            if config["disabletelegramerrormsgs"] in [0, 1]:
-                app.disabletelegramerrormsgs = bool(config["disabletelegramerrormsgs"])
+            if bool(config["disabletelegramerrormsgs"]):
+                app.disabletelegramerrormsgs = True
         else:
             raise TypeError("disabletelegramerrormsgs must be of type int")
 
     if "disablelog" in config:
         if isinstance(config["disablelog"], int):
-            if config["disablelog"] in [0, 1]:
-                app.disablelog = bool(config["disablelog"])
+            if bool(config["disablelog"]):
+                app.disablelog = True
         else:
             raise TypeError("disablelog must be of type int")
 
     if "disabletracker" in config:
         if isinstance(config["disabletracker"], int):
-            if config["disabletracker"] in [0, 1]:
-                app.disabletracker = bool(config["disabletracker"])
+            if bool(config["disabletracker"]):
+                app.disabletracker = True
         else:
             raise TypeError("disabletracker must be of type int")
 
     if "enableml" in config:
         if isinstance(config["enableml"], int):
-            if config["enableml"] in [0, 1]:
-                app.enableml = bool(config["enableml"])
+            if bool(config["enableml"]):
+                app.enableml = True
         else:
             raise TypeError("enableml must be of type int")
 
     if "websocket" in config:
         if isinstance(config["websocket"], int):
-            if config["websocket"] in [0, 1]:
-                app.websocket = bool(config["websocket"])
+            if bool(config["websocket"]):
+                app.websocket = True
         else:
             raise TypeError("websocket must be of type int")
 
     if "enableinsufficientfundslogging" in config:
         if isinstance(config["enableinsufficientfundslogging"], int):
-            if config["enableinsufficientfundslogging"] in [0, 1]:
-                app.enableinsufficientfundslogging = bool(config["enableinsufficientfundslogging"])
+            if bool(config["enableinsufficientfundslogging"]):
+                app.enableinsufficientfundslogging = True
         else:
             raise TypeError("enableinsufficientfundslogging must be of type int")
 
     if "enabletelegrambotcontrol" in config:
         if isinstance(config["enabletelegrambotcontrol"], int):
-            if config["enabletelegrambotcontrol"] in [0, 1]:
-                app.enabletelegrambotcontrol = bool(config["enabletelegrambotcontrol"])
+            if bool(config["enabletelegrambotcontrol"]):
+                app.enabletelegrambotcontrol = True
         else:
             raise TypeError("enabletelegrambotcontrol must be of type int")
 
     if "enableimmediatebuy" in config:
         if isinstance(config["enableimmediatebuy"], int):
-            if config["enableimmediatebuy"] in [0, 1]:
-                app.enableimmediatebuy = bool(config["enableimmediatebuy"])
+            if bool(config["enableimmediatebuy"]):
+                app.enableimmediatebuy = True
         else:
             raise TypeError("enableimmediatebuy must be of type int")
 
@@ -544,24 +516,17 @@ def defaultConfigParse(app, config):
         else:
             raise TypeError("trailingbuypcnt must be of type int or float")
 
-    if "trailingimmediatebuy" in config:
-        if isinstance(config["trailingimmediatebuy"], int):
-            if config["trailingimmediatebuy"] in [0, 1]:
-                app.trailingimmediatebuy = bool(config["trailingimmediatebuy"])
-        else:
-            raise TypeError("trailingimmediatebuy must be of type int")
-
     if "marketmultibuycheck" in config:
         if isinstance(config["marketmultibuycheck"], int):
-            if config["marketmultibuycheck"] in [0, 1]:
-                app.marketmultibuycheck = bool(config["marketmultibuycheck"])
+            if bool(config["marketmultibuycheck"]):
+                app.marketmultibuycheck = True
         else:
             raise TypeError("marketmultibuycheck must be of type int")
 
     if "logbuysellinjson" in config:
         if isinstance(config["logbuysellinjson"], int):
-            if config["logbuysellinjson"] in [0, 1]:
-                app.logbuysellinjson = bool(config["logbuysellinjson"])
+            if bool(config["logbuysellinjson"]):
+                app.logbuysellinjson = True
         else:
             raise TypeError("logbuysellinjson must be of type int")
 

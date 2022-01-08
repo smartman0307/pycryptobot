@@ -1,10 +1,15 @@
+# import os
+# from time import sleep
+
+# from datetime import datetime
+
 from models.telegram.control import TelegramControl
 from models.telegram.helper import TelegramHelper
 from models.telegram.actions import TelegramActions
 from models.telegram.config import ConfigEditor
-from models.telegram.settings import SettingsEditor
 
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
+
 from telegram.ext.callbackcontext import CallbackContext
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -19,7 +24,6 @@ class TelegramHandler:
         self.control = TelegramControl(self.datafolder, tg_helper)
         self.actions = TelegramActions(self.datafolder, tg_helper)
         self.editor = ConfigEditor(self.datafolder, tg_helper)
-        self.setting = SettingsEditor(self.datafolder, tg_helper)
 
     def _checkifallowed(self, userid, update) -> bool:
         if str(userid) != self.authoriseduserid:
@@ -30,7 +34,6 @@ class TelegramHandler:
 
     def getRequest(self) -> InlineKeyboardMarkup:
         keyboard = [
-            [InlineKeyboardButton("Notifications", callback_data="botsettings")],
             [
                 InlineKeyboardButton(
                     "\U0001F4D6 View config", callback_data="showconfig"
@@ -67,7 +70,7 @@ class TelegramHandler:
                 ),
             ],
             [
-                InlineKeyboardButton("\U00002139 Running Bot Status", callback_data="status"),
+                InlineKeyboardButton("\U00002139 Bot Status", callback_data="status"),
                 InlineKeyboardButton("Margins \U0001F4C8", callback_data="margin"),
             ],
             [InlineKeyboardButton("Cancel", callback_data="cancel")],
@@ -83,110 +86,60 @@ class TelegramHandler:
         query = update.callback_query
         query.answer()
 
-        # Default Cancel Button
         if query.data == "cancel":
-            self.helper.sendtelegramMsg(update, "\U00002757 User Cancelled Request")
+            query.edit_message_text(
+                "\U00002757 User Cancelled Request", parse_mode="HTML"
+            )
 
-        # Default Back Button
         if query.data == "back":
             key_markup = self.getRequest()
-            self.helper.sendtelegramMsg(update, "<b>PyCryptoBot Command Panel.</b>", key_markup)
+            query.edit_message_text(
+                "<b>PyCryptoBot Command Panel.</b>",
+                reply_markup=key_markup,
+                parse_mode="HTML",
+            )
 
-        # Settings / Notifications
-        elif query.data == "botsettings":
-            self.setting.getNotifications(update)
-        elif query.data.__contains__("notify_disable_"):
-            self.setting.disable_option(query.data[query.data.rfind('_')+1:])
-            self.setting.getNotifications(update) # refresh buttons
-        elif query.data.__contains__("notify_enable_"):
-            self.setting.enable_option(query.data[query.data.rfind('_')+1:])
-            self.setting.getNotifications(update) # refresh buttons
-
-        # Show Margins
         elif query.data == "margin":
             self.askMarginType(update)
         elif query.data in ("margin_orders", "margin_pairs", "margin_all"):
             self.actions.getMargins(update)
 
-        # Show Bot Info 
         elif query.data == "status":
             self.actions.getBotInfo(update)
 
-        # Show Config
         elif query.data == "showconfig":
-            self.askConfigOptions(update, "ex")
+            self.askConfigOptions(update)
         elif query.data.__contains__("ex_"):
             self.actions.showconfigresponse(update)
 
-        # Edit Config
-        elif query.data == "editconfig":
-            self.askConfigOptions(update, "edit")
-        elif query.data.__contains__("edit_"):
-            self.editor.getConfigOptions(update)
-        elif query.data.__contains__("_disable_"):
-            self.editor.disable_option(query.data[:query.data.find('_')], query.data[query.data.rfind('_')+1:])
-            self.editor.getConfigOptions(update) # refresh buttons
-        elif query.data.__contains__("_enable_"):
-            self.editor.enable_option(query.data[:query.data.find('_')], query.data[query.data.rfind('_')+1:])
-            self.editor.getConfigOptions(update) # refresh buttons
-
-        elif query.data.__contains__("_float_"):
-            self.askPercentValue(update, "float")
-        elif query.data.__contains__("_integer_"):
-            self.askPercentValue(update, "integer")
-        elif query.data.__contains__("increase"):
-            unit_size = 0.1 if query.data.__contains__("float") else 1
-            self.editor.increase_value(query.data[:query.data.find('_')], query.data[query.data.rfind('_')+1:], unit_size)
-            typestr = "float" if query.data.__contains__("float") else "integer"
-            self.askPercentValue(update, typestr)
-        elif query.data.__contains__("decrease"):
-            unit_size = 0.1 if query.data.__contains__("float") else 1
-            self.editor.decrease_value(query.data[:query.data.find('_')], query.data[query.data.rfind('_')+1:], unit_size)
-            type_str = "float" if query.data.__contains__("float") else "integer"
-            self.askPercentValue(update, type_str)
-        elif query.data.__contains__("_value_done"):
-            self.editor.getConfigOptions(update, query.data[:query.data.find('_')])
-        elif query.data == "save_config":
-            self.editor.save_updated_config(update)
-        elif query.data == "reload_config":
-            update.callback_query.data = "all"
-            self.control._actionBotResponse(update, "reload", "reload", "active")
-
-        # Restart Bots
         elif query.data == "restart":
             self.control.askRestartBotList(update)
         elif query.data.__contains__("restart_"):
             self.control.restartBotResponse(update)
-
-        # Start Bots
+            
         elif query.data == "start":
             self.control.askStartBotList(update)
         elif query.data.__contains__("start_"):
             self.control.startBotResponse(update)
 
-        # Stop Bots
         elif query.data == "stop":
             self.control.askStopBotList(update)
         elif query.data.__contains__("stop_"):
             self.control.stopBotResponse(update)
 
-        # Pause Bots
         elif query.data == "pause":
             self.control.askPauseBotList(update)
         elif query.data.__contains__("pause_"):
             self.control.pauseBotResponse(update)
 
-        # Resume Bots
         elif query.data == "resume":
             self.control.askResumeBotList(update)
         elif query.data.__contains__("resume_"):
             self.control.resumeBotResponse(update)
 
-        # Restart Bots with Open Orders
         elif query.data == "reopen":
             self.actions.startOpenOrders(update)
 
-        # Initiate Buy order
         elif query.data == "buy":
             self.control.askBuyBotList(update)
         elif query.data.__contains__("confirm_buy_"):
@@ -194,7 +147,6 @@ class TelegramHandler:
         elif query.data.__contains__("buy_"):
             self.askConfimation(update)
 
-        # Initiate Sell order
         elif query.data == "sell":
             self.control.askSellBotList(update)
         elif query.data.__contains__("confirm_sell_"):
@@ -202,88 +154,72 @@ class TelegramHandler:
         elif query.data.__contains__("sell_"):
             self.askConfimation(update)
 
-        # Delete Bot from start bot list (not on CP yet)
         elif query.data == "delete":
             self.control.askDeleteBotList(update)
         elif query.data.__contains__("delete_"):
             self.actions.deleteresponse(update)
 
-        # Market Scanner
         elif query.data == "scanner":
             self.getScannerOptions(update)
         elif query.data == "schedule":
             self._checkScheduledJob(update)
-        elif query.data in ("scanonly", "noscan", "startmarket"):
+        elif query.data == "scanonly" or query.data == "noscan" or query.data == "startmarket":
             if query.data == "startmarket":
                 self._checkScheduledJob(update)
-            self.helper.sendtelegramMsg(update, "Command Started")
-            self.actions.StartMarketScan(update, self.helper.use_default_scanner, True if query.data != "noscan" else False, True if query.data != "scanonly" else False)
+            self.actions.StartMarketScan(update, True if query.data != "noscan" else False, True if query.data != "scanonly" else False)
         elif query.data == "stopmarket":
             self._removeScheduledJob(update)
 
-        # Delete Exceptions
+        elif query.data == "editconfig":
+            query.edit_message_text(
+                "\U000026A0 <b>Under Construction</b> \U000026A0", parse_mode="HTML"
+            )
+            # key_markup = self.getConfigOptions()
+            # query.edit_message_text(
+            #     "<b>PyCryptoBot Config Panel.</b>",
+            #     reply_markup=key_markup,
+            #     parse_mode="HTML")
+
+        elif query.data.__contains__("edit_"):
+            self.editor.ask_buy_max_size(query, context)
+
         elif query.data.__contains__("delexcep_"):
             self.actions.RemoveExceptionCallBack(update)
 
-        # Actions by bot (experimental)
-        elif query.data.__contains__("bot_"):
-            self.getBotOptions(update)
-
-        # query.edit_message_text(
-            #     "\U000026A0 <b>Under Construction</b> \U000026A0", parse_mode="HTML"
-            # )
-
-    def getBotOptions(self, update):
+    def getScannerOptions(self, update):
         query = update.callback_query
 
         keyboard = [
             [
-                InlineKeyboardButton(
-                    "Stop", callback_data=f"stop_{query.data.replace('bot_', '')}"
-                )
+                InlineKeyboardButton("Add Schedule", callback_data="schedule")
             ],
             [
-                InlineKeyboardButton(
-                    "Restart", callback_data=f"restart_{query.data.replace('bot_', '')}"
-                ),
+                InlineKeyboardButton("Remove Schedule", callback_data="stopmarket"),
             ],
-            [
-                InlineKeyboardButton(
-                    "Pause", callback_data=f"pause_{query.data.replace('bot_', '')}"
-                ),
-                InlineKeyboardButton(
-                    "Resume", callback_data=f"resume_{query.data.replace('bot_', '')}"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "Sell", callback_data=f"sell_{query.data.replace('bot_', '')}"
-                )
-            ],
-            [InlineKeyboardButton("\U000025C0 Back", callback_data="back")],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard, one_time_keyboard=True)
-        reply = f"<b>{query.data.replace('bot_', '')} Actions:</b>"
-        self.helper.sendtelegramMsg(update, reply, reply_markup)
-
-    def getScannerOptions(self, update):
-        keyboard = [
             [
                 InlineKeyboardButton("Scan Only", callback_data="scanonly"),
-                InlineKeyboardButton("Start Bots Only", callback_data="noscan"),
+                InlineKeyboardButton("Start Bots Only", callback_data="noscan")
             ],
-            [InlineKeyboardButton("Scan + Start Bots", callback_data="startmarket")],
+            [
+                InlineKeyboardButton("Scan + Start Bots", callback_data="startmarket")
+            ],
             [InlineKeyboardButton("\U000025C0 Back", callback_data="back")],
         ]
 
-        keyboard.insert(0,
-            [
-                InlineKeyboardButton("Add Schedule", callback_data="schedule")
-                ] if len(scannerSchedule.get_jobs()) == 0 else [
-                InlineKeyboardButton("Remove Schedule", callback_data="stopmarket"),
-            ])
+        query.edit_message_text(
+            "<b>Scanning Options.</b>",
+            reply_markup=InlineKeyboardMarkup(keyboard, one_time_keyboard=True),
+            parse_mode="HTML")
 
-        self.helper.sendtelegramMsg(update, "<b>Scanning Options.</b>", InlineKeyboardMarkup(keyboard, one_time_keyboard=True))
+    def getConfigOptions(self):
+        keyboard = [
+            [
+                InlineKeyboardButton("BuyMaxSize", callback_data="edit_buymaxsize"),
+            ],
+            [InlineKeyboardButton("\U000025C0 Back", callback_data="back")],
+        ]
+
+        return InlineKeyboardMarkup(keyboard, one_time_keyboard=True)
 
     def askMarginType(self, update):
         """Ask what user wants to see active order/pairs or all"""
@@ -299,16 +235,23 @@ class TelegramHandler:
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard, one_time_keyboard=True)
-        reply = "<b>Make your selection</b>"
-        self.helper.sendtelegramMsg(update, reply, reply_markup)
 
-    def askConfigOptions(self, update: Update, callback: str = "ex"):
+        try:
+            query.edit_message_text(
+                "<b>Make your selection</b>",
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
+        except:
+            update.message.reply_text("Make your selection", reply_markup=reply_markup)
+
+    def askConfigOptions(self, update: Update):
         keyboard = []
         buttons = []
         for exchange in self.helper.config:
-            if exchange not in ("telegram", "scanner"):
+            if not exchange == "telegram":
                 buttons.append(
-                    InlineKeyboardButton(exchange.capitalize(), callback_data=f"{callback}_{exchange}")
+                    InlineKeyboardButton(exchange, callback_data="ex_" + exchange)
                 )
 
         i = 0
@@ -328,23 +271,9 @@ class TelegramHandler:
         reply_markup = InlineKeyboardMarkup(keyboard)
         query = update.callback_query
         query.answer()
-
-        self.helper.sendtelegramMsg(update, "<b>Select exchange</b>", reply_markup)
-
-    def askPercentValue(self, update, typestr):
-        query = update.callback_query
-        exchange, prop = query.data[:query.data.find('_')], query.data[query.data.rfind('_')+1:]
-        keyboard = [
-            [
-                InlineKeyboardButton("+", callback_data=f"{exchange}_increase_*{typestr}*_{prop}"),
-                InlineKeyboardButton("-", callback_data=f"{exchange}_decrease_*{typestr}*_{prop}"),
-            ],
-            [InlineKeyboardButton("\U000025C0 Done", callback_data=f"{exchange}_value_done")],
-        ]
-        if typestr == "integer":
-            self.helper.sendtelegramMsg(update, f"<b>{self.editor.integerProperties[prop]}: {int(self.helper.config[exchange]['config'][prop])}</b>", InlineKeyboardMarkup(keyboard, one_time_keyboard=True))
-        elif typestr == "float":
-            self.helper.sendtelegramMsg(update, f"<b>{self.editor.floatProperties[prop]}: {round(float(self.helper.config[exchange]['config'][prop]),1)}</b>", InlineKeyboardMarkup(keyboard, one_time_keyboard=True))
+        query.edit_message_text(
+            "<b>Select exchange</b>", reply_markup=reply_markup, parse_mode="HTML"
+        )
 
     def askConfimation(self, update):
 
@@ -357,37 +286,59 @@ class TelegramHandler:
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard, one_time_keyboard=True)
-        reply = f"<b>Are you sure you want to {query.data.replace('_', ' ')}?</b>"
-        self.helper.sendtelegramMsg(update, reply, reply_markup)
+
+        try:
+            query.edit_message_text(
+                f"<b>Are you sure you want to {query.data.replace('_', ' ')}?</b>",
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
+        except:
+            update.message.reply_text(
+                f"<b>Are you sure you want to {query.data.replace('_', ' ')}?</b>",
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
 
     def _checkScheduledJob(self, update):
         if (
             self.helper.config["scanner"]["autoscandelay"] > 0
             and len(scannerSchedule.get_jobs()) == 0
         ):
-            if not scannerSchedule.running: 
-                scannerSchedule.start()
-
+            scannerSchedule.start()
             scannerSchedule.add_job(
                 self.actions.StartMarketScan,
-                args=(update, self.helper.use_default_scanner, True, True),
+                args=(update, False, True),
                 trigger="interval",
                 minutes=self.helper.config["scanner"]["autoscandelay"] * 60,
                 name="Volume Auto Scanner",
                 misfire_grace_time=10,
             )
 
-            reply = f"<b>Scan job schedule created to run every {self.helper.config['scanner']['autoscandelay']} hour(s)</b> \u2705"
-            self.helper.sendtelegramMsg(update, reply)
+            try:
+                query = update.callback_query
+                query.edit_message_text(
+                    f"<b>Scan job schedule created to run every {self.helper.config['scanner']['autoscandelay']} hour(s)</b> \u2705", parse_mode="HTML"
+                )
+            except:
+                update.message.reply_text(f"<b>Scan job schedule created to run every {self.helper.config['scanner']['autoscandelay']} hour(s)</b> \u2705", parse_mode="HTML")
 
     def _removeScheduledJob(self, update):
+        try:
+            query = update.callback_query
+            query.answer()
+        except:
+            pass
 
         reply = ""
         if len(scannerSchedule.get_jobs()) > 0:
-            scannerSchedule.remove_all_jobs()
-            reply = "<b>Scan job schedule has been removed</b> \u2705"
+            scannerSchedule.shutdown()
+            reply = "Scan job schedule has been removed"
 
         else:
-            reply = "<b>No scheduled job found!</b>"
+            reply = "No scheduled job found"
 
-        self.helper.sendtelegramMsg(update, reply)
+        try:
+            query.edit_message_text(f"<b>{reply}</b> \u2705", parse_mode="HTML")
+        except:
+            update.message.reply_text(f"<b>{reply}</b> \u2705", parse_mode="HTML")
