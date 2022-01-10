@@ -126,6 +126,7 @@ class TelegramBot(TelegramBotBase):
         # Config section for bot pair scanner
         self.atr72pcnt = 2.0
         self.enableleverage = False
+        self.use_default_scanner = 1
         self.maxbotcount = 0
         self.autoscandelay = 0
         self.enable_buy_next = True
@@ -140,6 +141,11 @@ class TelegramBot(TelegramBotBase):
                 self.config["scanner"]["enableleverage"]
                 if "enableleverage" in self.config["scanner"]
                 else self.enableleverage
+            )
+            self.use_default_scanner = (
+                self.config["scanner"]["use_default_scanner"]
+                if "use_default_scanner" in self.config["scanner"]
+                else self.use_default_scanner
             )
             self.maxbotcount = (
                 self.config["scanner"]["maxbotcount"]
@@ -245,7 +251,7 @@ class TelegramBot(TelegramBotBase):
             return ConversationHandler.END
 
         if self.exchange in ("coinbasepro", "kucoin"):
-            p = re.compile(r"^[1-9A-Z]{2,20}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[0-9A-Z]{1,20}\-[1-9A-Z]{2,5}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format", reply_markup=ReplyKeyboardRemove()
@@ -253,7 +259,7 @@ class TelegramBot(TelegramBotBase):
                 # self.newbot_exchange(update, context)
                 return False
         elif self.exchange == "binance":
-            p = re.compile(r"^[A-Z0-9]{5,13}$")
+            p = re.compile(r"^[A-Z0-9]{4,25}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format.", reply_markup=ReplyKeyboardRemove()
@@ -407,7 +413,7 @@ class TelegramBot(TelegramBotBase):
             return ConversationHandler.END
 
         if self.exchange == "coinbasepro" or self.exchange == "kucoin":
-            p = re.compile(r"^[1-9A-Z]{2,5}\-[1-9A-Z]{2,5}$")
+            p = re.compile(r"^[0-9A-Z]{1,20}\-[1-9A-Z]{2,5}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format", reply_markup=ReplyKeyboardRemove()
@@ -415,7 +421,7 @@ class TelegramBot(TelegramBotBase):
                 self.stats_exchange_received(update, context)
                 return None
         elif self.exchange == "binance":
-            p = re.compile(r"^[A-Z0-9]{5,12}$")
+            p = re.compile(r"^[A-Z0-9]{4,25}$")
             if not p.match(update.message.text):
                 update.message.reply_text(
                     "Invalid market format.", reply_markup=ReplyKeyboardRemove()
@@ -780,10 +786,12 @@ class TelegramBot(TelegramBotBase):
             return
 
         self.handler._checkScheduledJob(update)
+        logger.info("Start scanning using default scanner? %s", True if self.use_default_scanner == 1 else False)
         self.actions.StartMarketScan(
             update,
+            True if self.use_default_scanner == 1 else False,
             False if len(context.args) > 0 and context.args[0] == "debug" else True,
-            False if len(context.args) > 0 and context.args[0] == "noscan" else True,
+            False if len(context.args) > 0 and context.args[0] == "noscan" else True
         )
 
     def StopScanning(self, update, context):
