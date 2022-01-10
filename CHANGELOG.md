@@ -8,12 +8,6 @@ Upgrade version:
 Upgrade library dependencies (if required):
 - python3 -m pip install -r requirements.txt -U
 
-## [5.1.4] - 2022-01-10
-
-- fixed spelling mistake in Kucoin api.py file
-- added balance checking to verify buy/sell trades occurred
-- revised market/symbol regex in telegram_bot.py to match rest of code
-
 ## [5.1.3] - 2022-01-03
 
 - fixed spelling mistake in comment
@@ -55,6 +49,9 @@ Upgrade library dependencies (if required):
 ## [4.6.2] - 2021-12-18
 
 - Fix bug in trailingbuypcnt code that could cause the waiting price to continually change and prevent a buy
+- fix error when saving trade data for the first time
+- Add all option to Sell command
+- Add unit tests for TG Bot
 
 ## [4.6.1] - 2021-12-09
 
