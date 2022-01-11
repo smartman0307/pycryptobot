@@ -13,10 +13,10 @@
 		"volatility_threshold": 9,
 		"minimum_volatility": 5,
 		"granularity": 3600,
-		"selection_score": 7,
+		"selection_score": 8,
 		"adx_threshold": 35
 	},
-	"binance": {
+	"kucoin": {
 		"quote_currency": [
 			"USDT"
 		],
@@ -29,7 +29,7 @@
 			"STRONG_BUY"
 		],
 		"selection_score": 8,
-		"granularity": "1hour",
+		"granularity": 3600,
 		"adx_threshold": 35
 	}
 }
