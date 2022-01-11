@@ -65,11 +65,6 @@ def executeJob(
 ):
     """Trading bot job which runs at a scheduled interval"""
 
-    if app.isLive():
-        state.account.mode = "live"
-    else:
-        state.account.mode = "test"
-
     # This is used to control some API calls when using websockets
     last_api_call_datetime = datetime.now() - _state.last_api_call_datetime
     if last_api_call_datetime.seconds > 60:
@@ -81,11 +76,6 @@ def executeJob(
         controlstatus = telegram_bot.checkbotcontrolstatus()
         while controlstatus == "pause" or controlstatus == "paused":
             if controlstatus == "pause":
-                text_box = TextBox(80, 22)
-                text_box.singleLine()
-                text_box.center("Pausing Bot")
-                text_box.singleLine()
-                Logger.debug("Pausing Bot.")
                 print(str(datetime.now()).format() + " - Bot is paused")
                 _app.notifyTelegram(f"{_app.getMarket()} bot is paused")
                 telegram_bot.updatebotstatus("paused")
@@ -97,12 +87,7 @@ def executeJob(
             controlstatus = telegram_bot.checkbotcontrolstatus()
 
         if controlstatus == "start":
-            text_box = TextBox(80, 22)
-            text_box.singleLine()
-            text_box.center("Restarting Bot")
-            text_box.singleLine()
-            Logger.debug("Restarting Bot.")
-            # print(str(datetime.now()).format() + " - Bot has restarted")
+            print(str(datetime.now()).format() + " - Bot has restarted")
             _app.notifyTelegram(f"{_app.getMarket()} bot has restarted")
             telegram_bot.updatebotstatus("active")
             _app.read_config(_app.getExchange())
@@ -111,32 +96,8 @@ def executeJob(
                 _websocket.start()
 
         if controlstatus == "exit":
-            text_box = TextBox(80, 22)
-            text_box.singleLine()
-            text_box.center("Closing Bot")
-            text_box.singleLine()
-            Logger.debug("Closing Bot.")
             _app.notifyTelegram(f"{_app.getMarket()} bot is stopping")
-            telegram_bot.removeactivebot()
             sys.exit(0)
-
-        if controlstatus == "reload":
-            text_box = TextBox(80, 22)
-            text_box.singleLine()
-            text_box.center("Reloading config parameters")
-            text_box.singleLine()
-            Logger.debug("Reloading config parameters.")
-            _app.read_config(_app.getExchange())
-            if _app.enableWebsocket():
-                _websocket.close()
-                _websocket = BWebSocketClient([app.getMarket()], app.getGranularity())
-                _websocket.start()
-            _app.setGranularity(_app.getGranularity())
-            list(map(s.cancel, s.queue))
-            s.enter(5, 1, executeJob, (sc, _app, _state, _technical_analysis, _websocket))
-            # _app.read_config(_app.getExchange())
-            telegram_bot.updatebotstatus("active")
-
 
     # reset _websocket every 23 hours if applicable
     if _app.enableWebsocket() and not _app.isSimulation():
@@ -1357,8 +1318,6 @@ def executeJob(
                         ignore_index=True,
                     )
 
-                    state.in_open_trade = True
-
                     state.last_api_call_datetime -= timedelta(seconds=60)
 
                 if _app.shouldSaveGraphs():
@@ -1589,7 +1548,6 @@ def executeJob(
                         },
                         ignore_index=True,
                     )
-                    state.in_open_trade = False
                     state.last_api_call_datetime -= timedelta(seconds=60)
                 if _app.shouldSaveGraphs():
                     tradinggraphs = TradingGraphs(_technical_analysis)
@@ -1849,7 +1807,7 @@ def executeJob(
                     str(_truncate(margin, 4) + "%") if _state.in_open_trade == True else " ",
                     str(_truncate(profit, 2)) if _state.in_open_trade == True else " ",
                     price,
-                    change_pcnt_high
+                    change_pcnt_high,
                 )
             
             # Update the watchdog_ping
