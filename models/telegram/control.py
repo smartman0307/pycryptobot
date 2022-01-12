@@ -1,7 +1,6 @@
 ''' Telegram Bot Control '''
 from time import sleep
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
-from telegram.ext.callbackcontext import CallbackContext
 
 from .helper import TelegramHelper
 
@@ -50,7 +49,7 @@ class TelegramControl:
             self.helper.send_telegram_message(update, f"<b>No {status} bots found.</b>")
 
     def sort_inline_buttons(self, buttons: list, call_back_tag):
-        ''' Sort buttons for inline keyboard display '''
+        ''' Sort butons for inline keyboard display '''
         keyboard = []
         if len(buttons) > 0:
             if len(buttons) > 1 and call_back_tag not in ("bot"):
@@ -205,7 +204,7 @@ class TelegramControl:
         self._ask_bot_list(update, "restart", "active")
 
     def restart_bot_response(self, update: Update):
-        ''' Restart bot list response '''
+        ''' Restart bot list reponse '''
         query = update.callback_query
         bot_list = {}
         for bot in self.helper.get_active_bot_list():
@@ -252,7 +251,7 @@ class TelegramControl:
 
         self.helper.send_telegram_message(update, "Select exchange", reply_markup)
 
-    def ask_delete_bot_list(self, update: Update, context: CallbackContext):
+    def ask_delete_bot_list(self, update: Update):
         """ask which bot to delete"""
         buttons = []
         keyboard = []
@@ -278,10 +277,10 @@ class TelegramControl:
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         self.helper.send_telegram_message(
-            update, "<b>What crypto bots do you want to delete?</b>", reply_markup, context=context
+            update, "<b>What crypto bots do you want to delete?</b>", reply_markup
         )
 
-    def ask_exception_bot_list(self, update, context):
+    def ask_exception_bot_list(self, update):
         """ask which bot to delete"""
         buttons = []
         keyboard = []
@@ -308,5 +307,4 @@ class TelegramControl:
             update,
             "<b>What do you want to remove from the scanner exception list?</b>",
             reply_markup,
-            context=context
         )

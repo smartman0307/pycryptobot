@@ -1514,8 +1514,7 @@ def executeJob(
                                     sys.exit(0)
 
                                 break
-                    except Exception as err:
-                        Logger.critical(err)
+                    except:
                         _state.trade_error_cnt += 1
                         if _state.trade_error_cnt >= 4:  # 5 attempts made
                             raise Exception(
