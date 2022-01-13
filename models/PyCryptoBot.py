@@ -1107,7 +1107,7 @@ class PyCryptoBot(BotConfig):
                     self.getAPIPassphrase(),
                     self.getAPIURL(),
                 )
-                return api.marketBuy(market, float(quote_currency))
+                return api.marketBuy(market, float(truncate(quote_currency, 8)))
             elif self.exchange == Exchange.BINANCE:
                 api = BAuthAPI(
                     self.getAPIKey(),
