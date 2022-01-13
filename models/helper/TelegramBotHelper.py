@@ -46,6 +46,8 @@ class TelegramBotHelper:
                         "startmethod" : self.app.startmethod,
                     },
                     "trailingstoplosstriggered" : False,
+                    "preventlosstriggered" : False,
+                    "exchange" : self.exchange.value,
                 }
                 self.data = ds
                 self._write_data()
@@ -77,6 +79,8 @@ class TelegramBotHelper:
                 encoding="utf8",
             ) as json_file:
                 self.data = json.load(json_file)
+        except FileNotFoundError as err:
+            Logger.warning(err)
         except (JSONDecodeError, Exception) as err:
             Logger.critical(str(err))
             with open(
@@ -116,8 +120,13 @@ class TelegramBotHelper:
                 "df_high": " ",
                 "from_df_high": " ",
                 "trailingstoplosstriggered" : float(margin.replace("%", "")) > self.app.trailingStopLossTrigger() if "trailingstoplosstriggered" in self.data and self.data['trailingstoplosstriggered'] == False else True,
-                "change_pcnt_high" : change_pcnt_high if "trailingstoplosstriggered" in self.data and self.data['trailingstoplosstriggered'] == True else 0.0
+                "change_pcnt_high" : change_pcnt_high if "trailingstoplosstriggered" in self.data and self.data['trailingstoplosstriggered'] == True else 0.0,
+                # "change_pcnt_low" : change_pcnt_high if "preventlosstriggered" in self.data and self.data['preventlosstriggered'] == True else 0.0
             }
+            
+            if self.app.preventLoss():
+                self.data.update({"preventlosstriggered" : float(margin.replace("%", "")) > self.app.preventLossTrigger() if "preventlosstriggered" in self.data and self.data['preventlosstriggered'] == False else True})
+
             self.data.update(addmarket)
             self._write_data()
 
@@ -160,11 +169,14 @@ class TelegramBotHelper:
 
     def deletemargin(self):
         if not self.app.isSimulation() and self.app.enableTelegramBotControl():
-            os.remove(
-                os.path.join(
-                    self.app.telegramdatafolder, "telegram_data", self.filename
+            try:
+                os.remove(
+                    os.path.join(
+                        self.app.telegramdatafolder, "telegram_data", self.filename
+                    )
                 )
-            )
+            except FileNotFoundError:
+                pass
 
     def closetrade(self, ts, price, margin):
         if not self.app.isSimulation() and self.app.enableTelegramBotControl():
@@ -173,7 +185,6 @@ class TelegramBotHelper:
                 {ts: {"pair": self.market, "price": price, "margin": margin}}
             )
             self._write_data("data.json")
-
             self.remove_open_order()
 
 
