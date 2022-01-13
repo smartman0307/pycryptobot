@@ -1,5 +1,4 @@
 ''' Telegram Bot Request Handler '''
-import datetime
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.ext.callbackcontext import CallbackContext
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -115,13 +114,13 @@ class TelegramHandler:
 
         # Show Margins
         elif query.data == "margin":
-            self.ask_margin_type(update)
+            self.ask_margin_type(update, context)
         elif query.data in ("margin_orders", "margin_pairs", "margin_all"):
             self.actions.get_margins(update)
 
         # Show Bot Info
         elif query.data == "status":
-            self.actions.get_bot_info(update)
+            self.actions.get_bot_info(update, context)
 
         # Show Config
         elif query.data == "showconfig":
@@ -212,13 +211,13 @@ class TelegramHandler:
 
         # Restart Bots with Open Orders
         elif query.data == "reopen":
-            self.actions.start_open_orders(update)
+            self.actions.start_open_orders(update, context)
 
         # Initiate Buy order
         elif query.data == "buy":
             self.control.ask_buy_bot_list(update)
         elif query.data.__contains__("confirm_buy_"):
-            self.actions.buy_response(update)
+            self.actions.buy_response(update, context)
         elif query.data.__contains__("buy_"):
             self.ask_confimation(update)
 
@@ -226,13 +225,13 @@ class TelegramHandler:
         elif query.data == "sell":
             self.control.ask_sell_bot_list(update)
         elif query.data.__contains__("confirm_sell_"):
-            self.actions.sell_response(update)
+            self.actions.sell_response(update, context)
         elif query.data.__contains__("sell_"):
             self.ask_confimation(update)
 
         # Delete Bot from start bot list (not on CP yet)
         elif query.data == "delete":
-            self.control.ask_delete_bot_list(update)
+            self.control.ask_delete_bot_list(update, context)
         elif query.data.__contains__("delete_"):
             self.actions.delete_response(update)
 
@@ -244,7 +243,7 @@ class TelegramHandler:
         elif query.data in ("scanonly", "noscan", "startmarket"):
             if query.data == "startmarket":
                 self._check_scheduled_job(update, context)
-            self.helper.send_telegram_message(update, "Command Started")
+            self.helper.send_telegram_message(update, "Command Started", context=context)
             self.actions.start_market_scan(
                 update,
                 context,
@@ -327,7 +326,7 @@ class TelegramHandler:
             InlineKeyboardMarkup(keyboard, one_time_keyboard=True),
         )
 
-    def ask_margin_type(self, update):
+    def ask_margin_type(self, update, context):
         """Ask what user wants to see active order/pairs or all"""
         keyboard = [
             [
@@ -340,7 +339,7 @@ class TelegramHandler:
 
         reply_markup = InlineKeyboardMarkup(keyboard, one_time_keyboard=True)
         reply = "<b>Make your selection</b>"
-        self.helper.send_telegram_message(update, reply, reply_markup)
+        self.helper.send_telegram_message(update, reply, reply_markup, context=context)
 
     def ask_config_options(self, update: Update, callback: str = "ex"):
         """get exchanges from config file"""
@@ -454,7 +453,7 @@ class TelegramHandler:
                 args=(update, context, self.helper.use_default_scanner, True, True),
                 trigger="interval",
                 minutes=self.helper.config["scanner"]["autoscandelay"] * 60,
-                name=f"Volume Auto Scanner ({datetime.datetime.now().isoformat()})",
+                name="Volume Auto Scanner",
                 misfire_grace_time=10,
             )
 
