@@ -182,45 +182,40 @@ class TradingAccount:
 
         if self.app.getExchange() == Exchange.KUCOIN:
             if self.mode == 'live':
-                model = KAuthAPI(
-                    self.app.getAPIKey(),
-                    self.app.getAPISecret(),
-                    self.app.getAPIPassphrase(),
-                    self.app.getAPIURL()
-                )
-                trycnt, maxretry = (0, 5)
-                while trycnt <= maxretry:
-                    df = model.getAccounts()
-
-                    if isinstance(df, pd.DataFrame) and len(df) > 0:
-                        if currency == '':
-                            # retrieve all balances
-                            return df
-                        else:
-                            # retrieve balance of specified currency
-                            df_filtered = df[df['currency'] == currency]['available']
-                            if len(df_filtered) == 0:
-                                # return nil balance if no positive balance was found
-                                return 0.0
-                            else:
-                                # return balance of specified currency (if positive)
-                                if currency in ['EUR', 'GBP', 'USD']:
-                                    return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 2))
-                                else:
-                                    return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 4))
+                model = KAuthAPI(self.app.getAPIKey(), self.app.getAPISecret(), self.app.getAPIPassphrase(), self.app.getAPIURL())
+                df = model.getAccounts()
+                if isinstance(df, pd.DataFrame) and len(df) > 0:
+                    if currency == '':
+                        # retrieve all balances
+                        return df
                     else:
-                        time.sleep(5)
-                        trycnt += 1
+                        # retrieve balance of specified currency
+                        df_filtered = df[df['currency'] == currency]['available']
+                        if len(df_filtered) == 0:
+                            # return nil balance if no positive balance was found
+                            return 0.0
+                        else:
+                            # return balance of specified currency (if positive)
+                            if currency in ['EUR', 'GBP', 'USD']:
+                                return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 2))
+                            else:
+                                return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 4))
                 else:
                     return 0.0
-
             else:
                 # return dummy balances
                 if currency == '':
                     # retrieve all balances
                     return self.balance
                 else:
-                    self.balance = self.balance.replace('QUOTE', currency)
+                    if self.app.getExchange() == Exchange.KUCOIN:
+                        self.balance = self.balance.replace('QUOTE', currency)
+                    else:
+                        # replace QUOTE and BASE placeholders
+                        if currency in ['EUR','GBP','USD']:
+                            self.balance = self.balance.replace('QUOTE', currency)
+                        else:
+                            self.balance = self.balance.replace('BASE', currency)
 
                     if self.balance.currency[self.balance.currency.isin([currency])].empty:
                         self.balance.loc[len(self.balance)] = [currency, 0, 0, 0]
@@ -265,9 +260,27 @@ class TradingAccount:
                         else:
                             # return balance of specified currency (if positive)
                             if currency in ["EUR", "GBP", "USD"]:
-                                return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 2))
+                                return float(
+                                    truncate(
+                                        float(
+                                            df[df["currency"] == currency][
+                                                "available"
+                                            ].values[0]
+                                        ),
+                                        2,
+                                    )
+                                )
                             else:
-                                return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 4))
+                                return float(
+                                    truncate(
+                                        float(
+                                            df[df["currency"] == currency][
+                                                "available"
+                                            ].values[0]
+                                        ),
+                                        4,
+                                    )
+                                )
                 else:
                     return 0.0
             else:
@@ -300,9 +313,27 @@ class TradingAccount:
                     else:
                         # return balance of specified currency (if positive)
                         if currency in ["EUR", "GBP", "USD"]:
-                            return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 2))
+                            return float(
+                                truncate(
+                                    float(
+                                        df[df["currency"] == currency][
+                                            "available"
+                                        ].values[0]
+                                    ),
+                                    2,
+                                )
+                            )
                         else:
-                            return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 4))
+                            return float(
+                                truncate(
+                                    float(
+                                        df[df["currency"] == currency][
+                                            "available"
+                                        ].values[0]
+                                    ),
+                                    4,
+                                )
+                            )
 
         elif self.app.getExchange() == Exchange.COINBASEPRO:
             if self.mode == "live":
@@ -313,38 +344,64 @@ class TradingAccount:
                     self.app.getAPIPassphrase(),
                     self.app.getAPIURL(),
                 )
-                trycnt, maxretry = (0, 5)
-                while trycnt <= maxretry:
+                if currency == "":
+                    # retrieve all balances
+                    accounts = model.getAccounts()[
+                        ["currency", "balance", "hold", "available"]
+                    ]
+
+                    trycnt, maxretry = (0, 5)
+                    while trycnt <= maxretry:
+                        if "balance" not in accounts:
+                            time.sleep(5)
+                            accounts = model.getAccounts()[
+                                ["currency", "balance", "hold", "available"]
+                            ]
+                        else:
+                            break
+                        trycnt += 1
+
+                    return accounts
+                else:
                     df = model.getAccounts()
 
-                    if len(df) > 0:
-                        # retrieve all balances, but check the resp
-                        if currency == "" and "balance" not in df:
-                            time.sleep(5)
-                            trycnt += 1
-                        # retrieve all balances and return
-                        elif currency == "":
-                            return df
-                        else:
-                            # retrieve balance of specified currency
-                            df_filtered = df[df["currency"] == currency]["available"]
-                            if len(df_filtered) == 0:
-                                # return nil balance if no positive balance was found
-                                return 0.0
-                            else:
-                                # return balance of specified currency (if positive)
-                                if currency in ["EUR", "GBP", "USD"]:
-                                    return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 2))
-                                else:
-                                    return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 4))
+                    # return nil if dataframe is empty
+                    if len(df) == 0:
+                        return 0.0
+
+                    # retrieve balance of specified currency
+                    df_filtered = df[df["currency"] == currency]["available"]
+                    if len(df_filtered) == 0:
+                        # return nil balance if no positive balance was found
+                        return 0.0
                     else:
-                        time.sleep(5)
-                        trycnt += 1
-                else:
-                    return 0.0
+                        # return balance of specified currency (if positive)
+                        if currency in ["EUR", "GBP", "USD"]:
+                            return float(
+                                truncate(
+                                    float(
+                                        df[df["currency"] == currency][
+                                            "available"
+                                        ].values[0]
+                                    ),
+                                    2,
+                                )
+                            )
+                        else:
+                            return float(
+                                truncate(
+                                    float(
+                                        df[df["currency"] == currency][
+                                            "available"
+                                        ].values[0]
+                                    ),
+                                    4,
+                                )
+                            )
 
             else:
                 # return dummy balances
+
                 if currency == "":
                     # retrieve all balances
                     return self.balance
@@ -373,9 +430,27 @@ class TradingAccount:
                     else:
                         # return balance of specified currency (if positive)
                         if currency in ["EUR", "GBP", "USD"]:
-                            return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 2))
+                            return float(
+                                truncate(
+                                    float(
+                                        df[df["currency"] == currency][
+                                            "available"
+                                        ].values[0]
+                                    ),
+                                    2,
+                                )
+                            )
                         else:
-                            return float(truncate(float(df[df['currency'] == currency]['available'].values[0]), 4))
+                            return float(
+                                truncate(
+                                    float(
+                                        df[df["currency"] == currency][
+                                            "available"
+                                        ].values[0]
+                                    ),
+                                    4,
+                                )
+                            )
         else:
             # dummy account
 
