@@ -1,5 +1,4 @@
 ''' Telegram Bot Request Handler '''
-import datetime
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.ext.callbackcontext import CallbackContext
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -353,11 +352,7 @@ class TelegramHandler:
                         exchange.capitalize(), callback_data=f"{callback}_{exchange}"
                     )
                 )
-        # buttons.append(
-        #             InlineKeyboardButton(
-        #                 "Screener", callback_data=f"{callback}_screener"
-        #             )
-        #         )
+
         i = 0
         while i <= len(buttons) - 1:
             if len(buttons) - 1 >= i + 2:
@@ -458,7 +453,7 @@ class TelegramHandler:
                 args=(update, context, self.helper.use_default_scanner, True, True),
                 trigger="interval",
                 minutes=self.helper.config["scanner"]["autoscandelay"] * 60,
-                name=f"Volume Auto Scanner ({datetime.datetime.now().isoformat()})",
+                name="Volume Auto Scanner",
                 misfire_grace_time=10,
             )
 
