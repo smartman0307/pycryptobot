@@ -296,7 +296,6 @@ class TelegramActions:
         self.helper.logger.info("called start_market_scan - %s", scanner_script_file)
 
         try:
-            self.helper.load_config()
             with open(f"{scanner_config_file}", encoding="utf8") as json_file:
                 config = json.load(json_file)
         except IOError as err:
@@ -427,13 +426,8 @@ class TelegramActions:
                         f"Not stopping {file} - in scanner list, or has open order..."
                     )
 
-        bots_per_exchange = self.helper.exchange_bot_count
-
-        total_bots_started = 0
-        exchange_bots_started = 0
-        active_at_start = len(self.helper.get_active_bot_list())
-        # botcounter = 0
-        # runningcounter = len(self.helper.get_active_bot_list())
+        botcounter = 0
+        runningcounter = len(self.helper.get_active_bot_list())
         maxbotcount = (
             self.helper.config["scanner"]["maxbotcount"]
             if "maxbotcount" in self.helper.config["scanner"]
@@ -442,11 +436,8 @@ class TelegramActions:
 
         self.helper.read_data()
         for ex in config:
-            if maxbotcount > 0 and (total_bots_started + active_at_start) >= maxbotcount:
+            if maxbotcount > 0 and (botcounter + runningcounter) >= maxbotcount:
                 break
-            if exchange_bots_started >= bots_per_exchange:
-                exchange_bots_started = 0
-                continue
             for quote in config[ex]["quote_currency"]:
                 if bool(self.helper.settings["notifications"]["enable_screener"]):
                     update.effective_message.reply_html(
@@ -476,11 +467,9 @@ class TelegramActions:
                     if debug:
                         self.helper.logger.info("%s", row)
 
-                    if maxbotcount > 0 and (total_bots_started + active_at_start) >= maxbotcount:
+                    if maxbotcount > 0 and (botcounter + runningcounter) >= maxbotcount:
                         break
-                    if exchange_bots_started >= bots_per_exchange:
-                        exchange_bots_started = 0
-                        break
+
                     if self.helper.config["scanner"]["enableleverage"] is not False and (
                         str(row).__contains__(f"DOWN{quote}")
                         or str(row).__contains__(f"UP{quote}")
@@ -519,12 +508,8 @@ class TelegramActions:
                                             f"<b>atr72_pcnt:</b> {data[row]['atr72_pcnt']}%  //--//"\
                                                 f"  <b>buy_next:</b> {data[row]['buy_next']}</i>\n"
                                     )
-                                    if self.helper.is_bot_running(row):
-                                        exchange_bots_started += 1
-                                    if self.helper.start_process(row, ex, "", "scanner"):
-                                    # botcounter += 1
-                                        total_bots_started += 1
-                                        exchange_bots_started += 1
+                                    self.helper.start_process(row, ex, "", "scanner")
+                                    botcounter += 1
                                 elif not self.helper.config["scanner"][
                                     "enable_buy_next"
                                 ]:
@@ -533,13 +518,10 @@ class TelegramActions:
                                         + f"<i><b>{row}</b>  //--//  "\
                                             f"<b>atr72_pcnt:</b> {data[row]['atr72_pcnt']}%</i>\n"
                                     )
-                                    if self.helper.is_bot_running(row):
-                                        exchange_bots_started += 1
-                                    if self.helper.start_process(row, ex, "", "scanner"):
-                                    # botcounter += 1
-                                        total_bots_started += 1
-                                        exchange_bots_started += 1
-                                sleep(6)
+                                    self.helper.start_process(row, ex, "", "scanner")
+                                    botcounter += 1
+                                if debug is False:
+                                    sleep(6)
 
                 if bool(self.helper.settings["notifications"]["enable_screener"]):
                     update.effective_message.reply_html(f"{outputmsg}")
@@ -547,8 +529,8 @@ class TelegramActions:
         # if bool(self.helper.settings["notifications"]["enable_screener"]):
         update.effective_message.reply_html(
             f"<b>{scanner_config_file.replace('.json', '').capitalize()} " \
-                f"Operation Complete.</b><i>\n- {total_bots_started} started"\
-                    f"\n- {active_at_start + total_bots_started} running</i>"
+                f"Operation Complete.</b><i>\n- {botcounter} started"\
+                    f"\n- {runningcounter + botcounter} running</i>"
         )
 
     def delete_response(self, update):

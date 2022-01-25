@@ -136,8 +136,6 @@ dmypy.json
 config.json
 config-coinbasepro.json
 config-binance.json
-scanner.json
-screener.json
 
 *.csv
 graphs/
@@ -151,7 +149,6 @@ graphs/
 pycryptobot.log.*
 
 tests/unit_tests/data/*.json
-telegram_logs
 
 *.key
 config-*.yaml

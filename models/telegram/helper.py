@@ -11,12 +11,8 @@ from typing import List
 from telegram import InlineKeyboardMarkup, Update
 from telegram.ext.callbackcontext import CallbackContext
 
-if not os.path.exists(os.path.join(os.curdir, "telegram_logs")):
-    os.mkdir(os.path.join(os.curdir, "telegram_logs"))
-
 logging.basicConfig(
-    filename=os.path.join(os.curdir, "telegram_logs", f"telegrambot {datetime.now().strftime('%Y-%m-%d')}.log"),
-    filemode='w',
+    filename=f"telegrambot {datetime.now().strftime('%Y-%m-%d')}.log", filemode='w',
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
     level=logging.INFO
 )
@@ -36,12 +32,10 @@ class TelegramHelper:
         self.atr72pcnt = 2.0
         self.enableleverage = False
         self.maxbotcount = 0
-        self.exchange_bot_count = 0
         self.autoscandelay = 0
         self.enable_buy_next = True
         self.autostart = False
         self.logger = logging.getLogger(__name__)
-        self.terminal_start_process = ""
 
         self.load_config()
         self.read_screener_config()
@@ -70,16 +64,6 @@ class TelegramHelper:
                 self.config["scanner"]["maxbotcount"]
                 if "maxbotcount" in self.config["scanner"]
                 else self.maxbotcount
-            )
-            self.exchange_bot_count = (
-                self.config["scanner"]["exchange_bot_count"]
-                if "exchange_bot_count" in self.config["scanner"]
-                else self.exchange_bot_count
-            )
-            self.terminal_start_process = (
-                self.config["scanner"]["terminal_start_process"]
-                if "terminal_start_process" in self.config["scanner"]
-                else self.terminal_start_process
             )
             self.autoscandelay = (
                 self.config["scanner"]["autoscandelay"]
@@ -112,8 +96,7 @@ class TelegramHelper:
                                 message_id=update.effective_message.message_id,
                                 text=reply,
                                 reply_markup=markup,
-                                parse_mode="HTML"
-                                )
+                                parse_mode="HTML")
             except:
                 context.bot.send_message(chat_id=update.effective_message.chat_id,
                                 text=reply,
@@ -213,14 +196,8 @@ class TelegramHelper:
             ):
                 jsonfiles.pop(i)
             else:
-                read_ok, try_cnt = False, 0
-                while not read_ok and try_cnt <= 5:
-                    try_cnt += 1
-                    read_ok = self.read_data(jsonfiles[i])
+                while self.read_data(jsonfiles[i]) is False:
                     sleep(0.1)
-
-                if not read_ok:
-                    jsonfiles.pop(i)
             i -= 1
         jsonfiles.sort()
         return [
@@ -340,8 +317,6 @@ class TelegramHelper:
                     f"{overrides}"
             )
         else:
-            if self.terminal_start_process != "":
-                command = f"{self.terminal_start_process} {command}"
             subprocess.Popen(
                 f"{command} --logfile './logs/{exchange}-{pair}-{datetime.now().date()}.log' "\
                     f"{overrides}",
@@ -375,6 +350,3 @@ class TelegramHelper:
                     done = True
                 except:
                     pass
-
-    def create_callback_data(self, callback_tag, exchange: str = "", parameter: str = ""):
-        return json.dumps({'c':callback_tag,'e': exchange,'p':parameter})
