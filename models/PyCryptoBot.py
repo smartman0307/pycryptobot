@@ -900,9 +900,6 @@ class PyCryptoBot(BotConfig):
     def setGranularity(self, granularity: Granularity):
         self.granularity = granularity
 
-    def useKucoinCache(self) -> bool:
-        return self.usekucoincache
-
     def compare(self, val1, val2, label="", precision=2):
         if val1 > val2:
             if label == "":
@@ -961,7 +958,6 @@ class PyCryptoBot(BotConfig):
                     self.getAPISecret(),
                     self.getAPIPassphrase(),
                     self.getAPIURL(),
-                    use_cache=self.useKucoinCache(),
                 )
                 orders = api.getOrders(self.getMarket(), "", "done")
 
@@ -1056,7 +1052,6 @@ class PyCryptoBot(BotConfig):
                 self.getAPISecret(),
                 self.getAPIPassphrase(),
                 self.getAPIURL(),
-                use_cache=self.useKucoinCache(),
             )
             self.takerfee = api.getTakerFee()
             return self.takerfee
@@ -1086,7 +1081,6 @@ class PyCryptoBot(BotConfig):
                 self.getAPISecret(),
                 self.getAPIPassphrase(),
                 self.getAPIURL(),
-                use_cache=self.useKucoinCache(),
             )
             return api.getMakerFee()
         else:
@@ -1112,7 +1106,6 @@ class PyCryptoBot(BotConfig):
                     self.getAPISecret(),
                     self.getAPIPassphrase(),
                     self.getAPIURL(),
-                    use_cache=self.useKucoinCache(),
                 )
                 return api.marketBuy(market, float(quote_currency))
             elif self.exchange == Exchange.BINANCE:
@@ -1153,7 +1146,6 @@ class PyCryptoBot(BotConfig):
                         self.getAPISecret(),
                         self.getAPIPassphrase(),
                         self.getAPIURL(),
-                        use_cache=self.useKucoinCache(),
                     )
                     return api.marketSell(market, base_currency)
             else:
@@ -1186,10 +1178,6 @@ class PyCryptoBot(BotConfig):
     def setNoSellAtLoss(self, flag):
         if isinstance(flag, int) and flag in [0, 1]:
             self.sell_at_loss = flag
-
-    def setUseKucoinCache(self, flag):
-        if isinstance(flag, int) and flag in [0, 1]:
-            self.usekucoincache = flag
 
     def startApp(self, app, account, last_action="", banner=True):
         if (

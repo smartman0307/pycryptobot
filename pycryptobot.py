@@ -75,58 +75,6 @@ def executeJob(
     if last_api_call_datetime.seconds > 60:
         _state.last_api_call_datetime = datetime.now()
 
-    # this is used to confirm last trade if error occured during trade process
-    # make sure signals and telegram info is set correctly, close bot if needed on sell
-    if app.isLive():
-        if _state.action == "check_buy" and _state.last_action == "BUY":
-            _state.trade_error_cnt = 0
-            _state.trailing_buy = 0
-            _state.action = None
-            telegram_bot.add_open_order()
-
-            Logger.warning(
-                f"{_app.getMarket()} ({_app.printGranularity}) - {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"Catching BUY that occured previously. Updating signal information."
-            )
-
-            _app.notifyTelegram(
-                _app.getMarket()
-                + " ("
-                + _app.printGranularity()
-                + ") - "
-                + datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-                + "\n"
-                + "Catching BUY that occured previously. Updating signal information."
-            )
-
-        elif _state.action == "check_sell" and _state.last_action == "SELL":
-            _state.prevent_loss = 0
-            _state.tsl_triggered = 0
-            _state.trade_error_cnt = 0
-            _state.action = None
-            telegram_bot.remove_open_order()
-
-            Logger.warning(
-                f"{_app.getMarket()} ({_app.printGranularity}) - {datetime.today().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"Catching SELL that occured previously. Updating signal information."
-            )
-
-            _app.notifyTelegram(
-                _app.getMarket()
-                + " ("
-                + _app.printGranularity()
-                + ") - "
-                + datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-                + "\n"
-                + "Catching SELL that occured previously. Updating signal information."
-            )
-
-            if _app.enableexitaftersell and _app.startmethod not in (
-                "standard",
-                "telegram",
-            ):
-                sys.exit(0)
-
     # This is used by the telegram bot
     # If it not enabled in config while will always be False
     if not _app.isSimulation():
@@ -181,7 +129,12 @@ def executeJob(
             _app.read_config(_app.getExchange())
             if _app.enableWebsocket():
                 _websocket.close()
-                _websocket = BWebSocketClient([app.getMarket()], app.getGranularity())
+                if _app.getExchange() == Exchange.BINANCE:
+                    _websocket = BWebSocketClient([app.getMarket()], app.getGranularity())
+                elif _app.getExchange() == Exchange.COINBASEPRO:
+                    _websocket = CWebSocketClient([app.getMarket()], app.getGranularity())
+                elif _app.getExchange() == Exchange.KUCOIN:
+                    _websocket = KWebSocketClient([app.getMarket()], app.getGranularity())
                 _websocket.start()
             _app.setGranularity(_app.getGranularity())
             list(map(s.cancel, s.queue))
@@ -1218,7 +1171,9 @@ def executeJob(
 
                         # display balances
                         Logger.info(
-                            f"{_app.getBaseCurrency()} balance before order: {str(account.basebalance_before)}\n"
+                            f"{_app.getBaseCurrency()} balance before order: {str(account.basebalance_before)}"
+                        )
+                        Logger.info(
                             f"{_app.getQuoteCurrency()} balance before order: {str(account.quotebalance_before)}"
                         )
 
@@ -1237,79 +1192,86 @@ def executeJob(
                         ):
                             _state.last_buy_size = _app.getBuyMaxSize()
 
-                        # place the buy order
-                        try:
-                            resp = _app.marketBuy(
-                                _app.getMarket(),
-                                _state.last_buy_size,
-                                _app.getBuyPercent(),
-                            )
+                        trycnt, maxtry = (1,3)
+                        bal_resp_error = 0
+                        while trycnt <= maxtry:
                             resp_error = 0
-                            # Logger.debug(resp)
-                        except Exception as err:
-                            Logger.warning(f"Trade Error: {err}")
-                            resp_error = 1
+                            if bal_resp_error == 0:
+                                try:
+                                    resp = _app.marketBuy(
+                                        _app.getMarket(),
+                                        _state.last_buy_size,
+                                        _app.getBuyPercent(),
+                                    )
+                                    # Logger.debug(resp)
+                                except Exception as err:
+                                    Logger.warning(f"Trade Error: {err}")
+                                    resp_error = 1
 
-                        if resp_error == 0:
-                            account.basebalance_after = 0
-                            account.quotebalance_after = 0        
-                            try:
+                            # check if no resp, don't make more API calls
+                            if resp_error == 0:
+                                # check balances after order
                                 ac = account.getBalance()
-                                df_base = ac[ac["currency"] == _app.getBaseCurrency()]["available"]
-                                account.basebalance_after = (
-                                    0.0
-                                    if len(df_base) == 0
-                                    else float(df_base.values[0])
+                                try:
+                                    df_base = ac[ac["currency"] == _app.getBaseCurrency()]["available"]
+                                    account.basebalance_after = (
+                                        0.0
+                                        if len(df_base) == 0
+                                        else float(df_base.values[0])
+                                    )
+                                    df_quote = ac[ac["currency"] == _app.getQuoteCurrency()]["available"]
+
+                                    account.quotebalance_after = (
+                                        0.0
+                                        if len(df_quote) == 0
+                                        else float(df_quote.values[0])
+                                    )
+                                    bal_resp_error = 0
+                                except Exception as err:
+                                    Logger.warning(
+                                        f"Error: Balance not retrieved after trade for {app.getMarket()}.  Trying again.\n"
+                                        f"API Error Msg: {err}"
+                                        )
+                                    resp_error, bal_resp_error = (1,1)
+
+                            # if error or the balance is still the same, pause and try again
+                            if resp_error == 1 or account.basebalance_after <= account.basebalance_before:
+                                time.sleep(15)
+                                trycnt += 1
+                            else:
+                                _state.trade_error_cnt = 0
+                                _state.trailing_buy = 0
+                                _state.last_action = "BUY"
+                                _state.action = "DONE"
+                                telegram_bot.add_open_order()
+
+                                Logger.info(
+                                    f"{_app.getBaseCurrency()} balance after order: {str(account.basebalance_after)}\n"
+                                    f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance_after)}"
                                 )
-                                df_quote = ac[ac["currency"] == _app.getQuoteCurrency()]["available"]
 
-                                account.quotebalance_after = (
-                                    0.0
-                                    if len(df_quote) == 0
-                                    else float(df_quote.values[0])
+                                now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+                                _app.notifyTelegram(
+                                    _app.getMarket()
+                                    + " ("
+                                    + _app.printGranularity()
+                                    + ") - "
+                                    + now
+                                    + "\n"
+                                    + "BUY at "
+                                    + price_text
                                 )
-                            except Exception as err:
-                                Logger.warning(
-                                    f"Error: Balance not retrieved after trade for {app.getMarket()}.  Trying again.\n"
-                                    f"API Error Msg: {err}"
-                                )
 
-                            _state.trade_error_cnt = 0
-                            _state.trailing_buy = 0
-                            _state.last_action = "BUY"
-                            _state.action = "DONE"
-                            telegram_bot.add_open_order()
+                                break
 
-                            Logger.info(
-                                f"{_app.getBaseCurrency()} balance after order: {str(account.basebalance_after)}\n"
-                                f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance_after)}"
-                            )
-
-                            now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-                            _app.notifyTelegram(
-                                _app.getMarket()
-                                + " ("
-                                + _app.printGranularity()
-                                + ") - "
-                                + now
-                                + "\n"
-                                + "BUY at "
-                                + price_text
-                            )
-
-                        else: # there was a response error
-                            # only attempt BUY 3 times before exception to prevent continuous loop 
+                        else:
                             _state.trade_error_cnt += 1
                             if _state.trade_error_cnt >= 2:  # 3 attempts made
                                 raise Exception(
-                                    f"Trade Error: BUY transaction attempted 3 times. Check log for errors"
+                                    f"Trade Error: BUY transaction attempted 5 times. Check log for errors"
                                 )
-
-                            # trigger a check of last trade on next iteration
-                            _state.last_action = None
-                            _state.action = "check_buy"
                             Logger.warning(
-                                f"API Error: Unable to place buy order for {app.getMarket()}."
+                                f"API Error: Unable to place buy order for {app.getMarket()}. Check log for errors"
                             )
                             if not app.disableTelegramErrorMsgs():
                                 app.notifyTelegram(f"API Error: Unable to place buy order for {app.getMarket()}")
@@ -1450,10 +1412,10 @@ def executeJob(
                             float(price)
                         )
 
-                        if not _app.isSimulation() or (
-                            _app.isSimulation() and not _app.simResultOnly()
-                        ):
-                            Logger.info(f" Fibonacci Retracement Levels:{str(bands)}")
+                    if not _app.isSimulation() or (
+                        _app.isSimulation() and not _app.simResultOnly()
+                    ):
+                        Logger.info(f" Fibonacci Retracement Levels:{str(bands)}")
 
                         if len(bands) >= 1 and len(bands) <= 2:
                             if len(bands) == 1:
@@ -1499,81 +1461,90 @@ def executeJob(
                         else float(state.last_buy_filled)
                     )
 
-                    account.basebalance_after = 0
-                    account.quotebalance_after = 0
-                    # place the sell order
-                    try:
-                        resp = _app.marketSell(
-                            _app.getMarket(),
-                            baseamounttosell,
-                            _app.getSellPercent(),
-                        )
+                    trycnt, maxtry = (1,3)
+                    bal_resp_error = 0
+                    while trycnt <= maxtry:
                         resp_error = 0
-                        #Logger.debug(resp)
-                    except Exception as err:
-                        Logger.warning(f"Trade Error: {err}")
-                        resp_error = 1
+                        account.basebalance_after = 0
+                        account.quotebalance_after = 0
+                        if bal_resp_error == 0:
+                            try:
+                                resp = _app.marketSell(
+                                    _app.getMarket(),
+                                    baseamounttosell,
+                                    _app.getSellPercent(),
+                                )
+                                #Logger.debug(resp)
+                            except Exception as err:
+                                Logger.warning(f"Trade Error: {err}")
+                                resp_error = 1
 
-                    if resp_error == 0:
-                        try:
-                            account.basebalance_after = float(account.getBalance(_app.getBaseCurrency()))
-                            account.quotebalance_after = float(account.getBalance(_app.getQuoteCurrency()))
-                        except Exception as err:
-                            Logger.warning(
-                                f"Error: Balance not retrieved after trade for {app.getMarket()}.\n"
-                                f"API Error Msg: {err}"
-                        )
+                        # check if no resp, don't make more API calls
+                        if resp_error == 0:
+                            # check balances
+                            try:
+                                account.basebalance_after = float(account.getBalance(_app.getBaseCurrency()))
+                                account.quotebalance_after = float(account.getBalance(_app.getQuoteCurrency()))
+                                bal_resp_error = 0
+                            except Exception as err:
+                                Logger.warning(
+                                    f"Error: Balance not retrieved after trade for {app.getMarket()}.  Trying again.\n"
+                                    f"API Error Msg: {err}"
+                                )
+                                resp_error, bal_resp_error = (1,1)
 
-                        Logger.info(
-                            f"{_app.getBaseCurrency()} balance after order: {str(account.basebalance_after)}\n"
-                            f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance_after)}"
-                        )
-                        _state.prevent_loss = 0
-                        _state.tsl_triggered = 0
-                        _state.trade_error_cnt = 0
-                        _state.last_action = "SELL"
-                        _state.action = "DONE"
+                        # if error or the balance is still the same, pause and try again
+                        if resp_error == 1 or account.basebalance_after >= account.basebalance_before:
+                            time.sleep(15)
+                            trycnt += 1
+                        else:
+                            # display balances
+                            Logger.info(
+                                f"{_app.getBaseCurrency()} balance after order: {str(account.basebalance_after)}\n"
+                                f"{_app.getQuoteCurrency()} balance after order: {str(account.quotebalance_after)}"
+                            )
+                            _state.prevent_loss = 0
+                            _state.trade_error_cnt = 0
+                            _state.last_action = "SELL"
+                            _state.action = "DONE"
                                 
-                        _app.notifyTelegram(
-                            _app.getMarket()
-                            + " ("
-                            + _app.printGranularity()
-                            + ") - "
-                            + now
-                            + "\n"
-                            + "SELL at "
-                            + price_text
-                            + " (margin: "
-                            + margin_text
-                            + ", delta: "
-                            + str(round(price - _state.last_buy_price, precision))
-                            + ")"
-                        )
+                            _app.notifyTelegram(
+                                _app.getMarket()
+                                + " ("
+                                + _app.printGranularity()
+                                + ") - "
+                                + now
+                                + "\n"
+                                + "SELL at "
+                                + price_text
+                                + " (margin: "
+                                + margin_text
+                                + ", delta: "
+                                + str(round(price - _state.last_buy_price, precision))
+                                + ")"
+                            )
 
-                        telegram_bot.closetrade(
-                            str(_app.getDateFromISO8601Str(str(datetime.now()))),
-                            price_text,
-                            margin_text,
-                        )
+                            telegram_bot.closetrade(
+                                str(_app.getDateFromISO8601Str(str(datetime.now()))),
+                                price_text,
+                                margin_text,
+                            )
 
-                        if _app.enableexitaftersell and _app.startmethod not in (
-                            "standard",
-                            "telegram",
-                        ):
-                            sys.exit(0)
+                            if _app.enableexitaftersell and _app.startmethod not in (
+                                "standard",
+                                "telegram",
+                            ):
+                                sys.exit(0)
+                            break
 
-                    else: # there was an error
-                        # only attempt SELL 3 times before exception to prevent continuous loop 
+                    else:
                         _state.trade_error_cnt += 1
                         if _state.trade_error_cnt >= 2:  # 3 attempts made
                             raise Exception(
-                                f"Trade Error: SELL transaction attempted 3 times. Check log for errors."
+                                f"Trade Error: SELL transaction attempted 5 times. Check log for errors."
                             )
-                        # trigger a check of last trade on next iteration
-                        _state.last_action = None
-                        _state.action = "check_sell"
                         Logger.warning(
-                            f"API Error: Unable to place SELL order for {app.getMarket()}."
+                            f"API Error: Unable to place SELL order for {app.getMarket()}.  Check log for errors."
                         )
                         if not app.disableTelegramErrorMsgs():
                             app.notifyTelegram(f"API Error: Unable to place SELL order for {app.getMarket()}")
