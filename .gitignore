@@ -136,8 +136,6 @@ dmypy.json
 config.json
 config-coinbasepro.json
 config-binance.json
-scanner.json
-screener.json
 
 *.csv
 graphs/

@@ -1,5 +1,4 @@
 ''' Telegram Bot Control '''
-import models.telegram.callbacktags as callbacktags
 from time import sleep
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.ext.callbackcontext import CallbackContext
@@ -17,24 +16,27 @@ class TelegramControl:
         buttons = []
 
         for market in self.helper.get_active_bot_list(status):
-            if self.helper.read_data(market) and "botcontrol" in self.helper.data:
+            while self.helper.read_data(market) is False:
+                sleep(0.2)
+
+            if "botcontrol" in self.helper.data:
                 if "margin" in self.helper.data:
                     if call_back_tag == "buy" and self.helper.data["margin"] == " ":
                         buttons.append(
                             InlineKeyboardButton(
-                                market, callback_data=self.helper.create_callback_data(call_back_tag, "", market) #f"{call_back_tag}_{market}"
+                                market, callback_data=f"{call_back_tag}_{market}"
                             )
                         )
                     elif call_back_tag == "sell" and self.helper.data["margin"] != " ":
                         buttons.append(
                             InlineKeyboardButton(
-                                market, callback_data=self.helper.create_callback_data(call_back_tag, "", market) #f"{call_back_tag}_{market}"
+                                market, callback_data=f"{call_back_tag}_{market}"
                             )
                         )
                     elif call_back_tag not in ("buy", "sell"):
                         buttons.append(
                             InlineKeyboardButton(
-                                market, callback_data=self.helper.create_callback_data(call_back_tag, "", market) #f"{call_back_tag}_{market}"
+                                market, callback_data=f"{call_back_tag}_{market}"
                             )
                         )
 
@@ -53,7 +55,7 @@ class TelegramControl:
         if len(buttons) > 0:
             if len(buttons) > 1 and call_back_tag not in ("bot"):
                 keyboard = [
-                    [InlineKeyboardButton("All", callback_data=self.helper.create_callback_data(call_back_tag, "", "all"))] #f"{call_back_tag}_all")]
+                    [InlineKeyboardButton("All", callback_data=f"{call_back_tag}_all")]
                 ]
 
             i = 0
@@ -71,13 +73,13 @@ class TelegramControl:
                     [
                         InlineKeyboardButton(
                             "All (w/o open order)",
-                            callback_data=self.helper.create_callback_data(call_back_tag, "", "allclose") #f"{call_back_tag}_allclose",
+                            callback_data=f"{call_back_tag}_allclose",
                         )
                     ]
                 )
 
             keyboard.append(
-                [InlineKeyboardButton("\U000025C0 Back", callback_data=self.helper.create_callback_data(callbacktags.BACK))]
+                [InlineKeyboardButton("\U000025C0 Back", callback_data="back")]
             )
 
         return InlineKeyboardMarkup(keyboard)
@@ -113,7 +115,7 @@ class TelegramControl:
         for market in self.helper.data["markets"]:
             if not self.helper.is_bot_running(market):
                 buttons.append(
-                    InlineKeyboardButton(market, callback_data=self.helper.create_callback_data(callbacktags.START, "", market)) #"start_" + market)
+                    InlineKeyboardButton(market, callback_data="start_" + market)
                 )
 
         if len(buttons) > 0:
@@ -207,8 +209,8 @@ class TelegramControl:
         query = update.callback_query
         bot_list = {}
         for bot in self.helper.get_active_bot_list():
-            if not self.helper.read_data(bot):
-                continue
+            while self.helper.read_data(bot) is False:
+                sleep(0.2)
             if query.data.__contains__("all"):
                 bot_list.update(
                     {
@@ -237,18 +239,18 @@ class TelegramControl:
             )
             sleep(10)
 
-#     def ask_exchange_options(self, update: Update):
-#         ''' Get available exchanges from config '''
-#         keyboard = []
-#         for exchange in self.helper.config:
-#             if not exchange == "telegram":
-#                 keyboard.append(
-#                     [InlineKeyboardButton(exchange, callback_data=exchange)]
-#                 )
-# 
-#         reply_markup = InlineKeyboardMarkup(keyboard)
-# 
-#         self.helper.send_telegram_message(update, "Select exchange", reply_markup)
+    def ask_config_options(self, update: Update):
+        ''' Get available exchanges from config '''
+        keyboard = []
+        for exchange in self.helper.config:
+            if not exchange == "telegram":
+                keyboard.append(
+                    [InlineKeyboardButton(exchange, callback_data=exchange)]
+                )
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        self.helper.send_telegram_message(update, "Select exchange", reply_markup)
 
     def ask_delete_bot_list(self, update: Update, context: CallbackContext):
         """ask which bot to delete"""
@@ -258,7 +260,7 @@ class TelegramControl:
         self.helper.read_data()
         for market in self.helper.data["markets"]:
             buttons.append(
-                InlineKeyboardButton(market, callback_data=self.helper.create_callback_data(callbacktags.DELETE, "", market)) #"delete_" + market)
+                InlineKeyboardButton(market, callback_data="delete_" + market)
             )
 
         if len(buttons) > 0:
@@ -271,7 +273,7 @@ class TelegramControl:
                 else:
                     keyboard.append([buttons[i]])
                 i += 3
-            keyboard.append([InlineKeyboardButton("Cancel", callback_data=self.helper.create_callback_data(callbacktags.CANCEL))])
+            keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -286,7 +288,7 @@ class TelegramControl:
 
         self.helper.read_data()
         for pair in self.helper.data["scannerexceptions"]:
-            buttons.append(InlineKeyboardButton(pair, callback_data=self.helper.create_callback_data(callbacktags.REMOVEEXCEPTION, "", pair))) #"delexcep_" + pair))
+            buttons.append(InlineKeyboardButton(pair, callback_data="delexcep_" + pair))
 
         if len(buttons) > 0:
             i = 0
@@ -298,7 +300,7 @@ class TelegramControl:
                 else:
                     keyboard.append([buttons[i]])
                 i += 3
-            keyboard.append([InlineKeyboardButton("Cancel", callback_data=self.helper.create_callback_data(callbacktags.CANCEL))])
+            keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
