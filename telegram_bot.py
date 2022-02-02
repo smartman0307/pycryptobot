@@ -8,20 +8,20 @@ Usage:
 Press Ctrl-C on the command line or send a signal to the process to stop the bot.
 """
 import argparse
-
+from asyncore import write
+import logging
 import os
 import json
 import subprocess
-import logging
+import sys
 import re
 import urllib.request
 
 from datetime import datetime
-from time import sleep
-
+from time import sleep, time
 
 # from pandas.core.frame import DataFrame
-from telegram import InlineKeyboardButton, ReplyKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.bot import Bot, BotCommand
 from telegram.ext import (
     Updater,
@@ -33,6 +33,7 @@ from telegram.ext import (
 )
 from telegram.replykeyboardremove import ReplyKeyboardRemove
 from apscheduler.schedulers.background import BackgroundScheduler
+from models.chat import Telegram
 
 from models.telegram import (
     TelegramControl,
@@ -46,11 +47,11 @@ from models.telegram import (
 scannerSchedule = BackgroundScheduler(timezone="UTC")
 
 # Enable logging
-# logging.basicConfig(
-#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-# )
-# 
-# logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
+logger = logging.getLogger(__name__)
 
 # TYPING_RESPONSE = 1
 CHOOSING, TYPING_REPLY = range(2)
@@ -163,6 +164,55 @@ class TelegramBot(TelegramBotBase):
         )
 
         self.helper.load_config()
+
+        # self.handler = TelegramHandler(self.datafolder, self.userid, self.helper)
+        # self.control = TelegramControl(self.datafolder, self.helper)
+        # self.actions = TelegramActions(self.datafolder, self.helper)
+        # self.editor = ConfigEditor(self.datafolder, self.helper)
+        # self.setting = SettingsEditor(self.datafolder, self.helper)
+# 
+#     def reload_config(self):
+#         # Config section for bot pair scanner
+#         self.atr72pcnt = 2.0
+#         self.enableleverage = False
+#         self.use_default_scanner = 1
+#         self.maxbotcount = 0
+#         self.autoscandelay = 0
+#         self.enable_buy_next = True
+#         self.autostart = False
+#         if "scanner" in self.config:
+#             self.atr72pcnt = (
+#                 self.config["scanner"]["atr72_pcnt"]
+#                 if "atr72_pcnt" in self.config["scanner"]
+#                 else self.atr72pcnt
+#             )
+#             self.enableleverage = (
+#                 self.config["scanner"]["enableleverage"]
+#                 if "enableleverage" in self.config["scanner"]
+#                 else self.enableleverage
+#             )
+#             self.use_default_scanner = (
+#                 self.config["scanner"]["use_default_scanner"]
+#                 if "use_default_scanner" in self.config["scanner"]
+#                 else self.use_default_scanner
+#             )
+#             self.maxbotcount = (
+#                 self.config["scanner"]["maxbotcount"]
+#                 if "maxbotcount" in self.config["scanner"]
+#                 else self.maxbotcount
+#             )
+#             self.autoscandelay = (
+#                 self.config["scanner"]["autoscandelay"]
+#                 if "autoscandelay" in self.config["scanner"]
+#                 else 0
+#             )
+#             self.enable_buy_next = (
+#                 self.config["scanner"]["enable_buy_next"]
+#                 if "enable_buy_next" in self.config["scanner"]
+#                 else True
+#             )
+
+        self.helper = TelegramHelper(self.datafolder, self.config, self.config_file)
 
         self.handler = TelegramHandler(self.datafolder, self.userid, self.helper)
         self.control = TelegramControl(self.datafolder, self.helper)
@@ -301,17 +351,19 @@ class TelegramBot(TelegramBotBase):
         if not self._check_if_allowed(context._user_id_and_data[0], update):
             return
 
-        if self.helper.read_data():
+        self.helper.read_data()
+
+        output = ""
+        for dt in self.helper.data["trades"]:
             output = ""
-            for dt in self.helper.data["trades"]:
-                output = ""
-                output = (
-                    output + f"<b>{self.helper.data['trades'][dt]['pair']}</b>\n{dt}"
-                )
-                output = (
-                    output
-                    + f"\n<i>Sold at: {self.helper.data['trades'][dt]['price']}   Margin: {self.helper.data['trades'][dt]['margin']}</i>\n"
-                )
+            output = (
+                output + f"<b>{self.helper.data['trades'][dt]['pair']}</b>\n{dt}"
+            )
+            output = (
+                output
+                + f"\n<i>Sold at: {self.helper.data['trades'][dt]['price']}   Margin: {self.helper.data['trades'][dt]['margin']}</i>\n"
+            )
+
             if output != "":
                 self.helper.send_telegram_message(update, output, context=context)
 
@@ -544,18 +596,6 @@ class TelegramBot(TelegramBotBase):
 
     def error(self, update, context):
         """Log Errors"""
-        try:
-            if len(context.error.args) > 0:
-                context.bot.send_message(chat_id=update.effective_message.chat_id,
-                                    text=f"ERROR: {context.error.args[0]}",
-                                    parse_mode="HTML")
-            elif "message" in context.error :
-                context.bot.send_message(chat_id=update.effective_message.chat_id,
-                                    text=f"ERROR: {context.error.message}",
-                                    parse_mode="HTML")
-        except Exception as err:
-            print(err)
-        # self.helper.send_telegram_message(update, context.error)
         self.helper.logger.error(msg="Exception while handling an update:", exc_info=context.error)
         try:
             if "HTTPError" in context.error.args[0]:
@@ -584,14 +624,14 @@ class TelegramBot(TelegramBotBase):
             return False
 
     def _cleandata(self):
-        self.helper.logger.debug("/cleandata started")
         jsonfiles = self.helper.get_active_bot_list()
         for i in range(len(jsonfiles), 0, -1):
             jfile = jsonfiles[i - 1]
 
             self.helper.logger.info("checking %s", jfile)
 
-            self.helper.read_data(jfile)
+            while self.helper.read_data(jfile) == False:
+                sleep(0.2)
 
             last_modified = datetime.now() - datetime.fromtimestamp(
                 os.path.getmtime(
@@ -607,7 +647,7 @@ class TelegramBot(TelegramBotBase):
                 and last_modified.seconds > 120
                 and (last_modified.seconds != 86399 and last_modified.days != -1)
             ):
-                self.helper.logger.info("deleting %s %s", jfile, str(last_modified))
+                logger.info("deleting %s %s", jfile, str(last_modified))
                 os.remove(
                     os.path.join(self.datafolder, "telegram_data", f"{jfile}.json")
                 )
@@ -619,7 +659,6 @@ class TelegramBot(TelegramBotBase):
             ):
                 self.helper.logger.info("deleting %s %s", jfile, str(last_modified.seconds))
                 os.remove(os.path.join(self.datafolder, "telegram_data", f"{jfile}.json"))
-        self.helper.logger.debug("/cleandata complete")
 
     def ExceptionExchange(self, update, context):
         """start new bot ask which exchange"""
@@ -711,7 +750,7 @@ class TelegramBot(TelegramBotBase):
         if not self._check_if_allowed(context._user_id_and_data[0], update):
             return
 
-        self.handler.ask_exchange_options(update)
+        self.handler.ask_config_options(update)
         return
 
     def pausebotrequest(self, update, context) -> None:
@@ -834,11 +873,19 @@ class TelegramBot(TelegramBotBase):
         if not self._check_if_allowed(context._user_id_and_data[0], update):
             return None
 
+        # query = update.callback_query
+        # try:
+        #     query.answer()
+        # except:
+        #     pass
+
         buttons = []
 
         for market in self.helper.get_active_bot_list("active"):
-            read_ok = self.helper.read_data(market)
-            if read_ok and "botcontrol" in self.helper.data:
+            while self.helper.read_data(market) == False:
+                sleep(0.2)
+
+            if "botcontrol" in self.helper.data:
                 buttons.append(InlineKeyboardButton(market, callback_data=f"bot_{market}"))
 
         if len(buttons) > 0:
@@ -862,7 +909,10 @@ class TelegramBot(TelegramBotBase):
 def main():
     """Start the bot."""
     # Create telegram bot configuration
+    print("Telegram Bot is listening")
+
     botconfig = TelegramBot()
+
     # Get the dispatcher to register handlers
     dp = botconfig.updater.dispatcher
 
@@ -970,8 +1020,8 @@ def main():
 
     # Start the Bot
     botconfig.updater.start_polling()
-    botconfig.helper.logger.info("Telegram Bot is listening")
     botconfig.updater.bot.send_message(text="Online and ready.", chat_id=botconfig.helper.config["telegram"]["user_id"])
+
     # Run the bot until you press Ctrl-C
     # since start_polling() is non-blocking and will stop the bot gracefully.
     botconfig.updater.idle()
