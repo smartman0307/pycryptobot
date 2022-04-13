@@ -135,6 +135,16 @@ class TelegramHelper:
         """Load/Reread scanner config file from file"""
         self.read_config()
 
+        self.atr72pcnt = 2.0
+        self.enableleverage = False
+        self.use_default_scanner = True
+        self.maxbotcount = 0
+        self.exchange_bot_count = 0
+        self.terminal_start_process = ""
+        self.autoscandelay = 0
+        self.enable_buy_next = True
+        self.autostart = False
+
         if "scanner" in self.config:
             self.atr72pcnt = (
                 self.config["scanner"]["atr72_pcnt"]
@@ -181,6 +191,9 @@ class TelegramHelper:
                 if "autostart" in self.config["scanner"]
                 else False
             )
+
+        self.datafolder = os.curdir
+        self.logger_level = "INFO"
 
         if "telegram" in self.config:
             self.datafolder = (
@@ -277,7 +290,7 @@ class TelegramHelper:
         except json.decoder.JSONDecodeError:
             return
 
-    def write_config(self) -> bool:
+    def write_config(self):
         """Write config file"""
         self.logger.debug("METHOD(write_config)")
         try:
@@ -287,9 +300,8 @@ class TelegramHelper:
                 encoding="utf8",
             ) as outfile:
                 json.dump(self.config, outfile, indent=4)
-            return True
         except:  # pylint: disable=bare-except
-            return False
+            return
 
     def read_screener_config(self):
         """Read screener config file"""

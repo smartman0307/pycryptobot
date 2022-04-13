@@ -162,4 +162,3 @@ screener.json
 models/exchange/kraken
 script-kraken.py
 script-krakenv2.py
-*.stats
