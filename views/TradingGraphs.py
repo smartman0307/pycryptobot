@@ -6,18 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import datetime, re, sys
 
-# check for custom Trading files.  Errors are reported in pycryptobot.py when loaded there.
-try:
-    from models.Trading_myPta import TechnicalAnalysis
-    trading_myPta = True
-except:
-    trading_myPta = False
-if trading_myPta is False:
-    try:
-        from models.Trading_Pta import TechnicalAnalysis
-    except:
-        from models.Trading import TechnicalAnalysis
-
+from models.Trading import TechnicalAnalysis
 from models.helper.LogHelper import Logger
 
 sys.path.append(".")
