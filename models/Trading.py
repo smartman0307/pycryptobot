@@ -26,7 +26,7 @@ warnings.simplefilter("ignore", ConvergenceWarning)
 
 
 class TechnicalAnalysis:
-    def __init__(self, data=DataFrame(), total_periods: int=300) -> None:
+    def __init__(self, data=DataFrame()) -> None:
         """Technical Analysis object model
 
         Parameters
@@ -62,7 +62,6 @@ class TechnicalAnalysis:
 
         self.df = data
         self.levels = []
-        self.total_periods = total_periods
 
     def getDataFrame(self) -> DataFrame:
         """Returns the Pandas DataFrame"""
@@ -76,10 +75,8 @@ class TechnicalAnalysis:
 
         self.addCMA()
         self.addSMA(20)
-        if self.total_periods >= 50:
-            self.addSMA(50)
-        if self.total_periods >= 200:
-            self.addSMA(200)
+        self.addSMA(50)
+        self.addSMA(200)
         self.addEMA(8)
         self.addEMA(12)
         self.addEMA(26)
@@ -95,8 +92,7 @@ class TechnicalAnalysis:
         self.addElderRayIndex()
 
         self.addEMABuySignals()
-        if self.total_periods >= 200:
-            self.addSMABuySignals()
+        self.addSMABuySignals()
         self.addMACDBuySignals()
 
         self.addADXBuySignals()
@@ -572,7 +568,7 @@ class TechnicalAnalysis:
         if not isinstance(interval, int):
             raise TypeError("interval parameter is not intervaleric.")
 
-        if interval > self.total_periods or interval < 5 or interval > 200:
+        if interval < 5 or interval > 200:
             raise ValueError("interval is out of range")
 
         if len(self.df) < interval:
@@ -657,7 +653,7 @@ class TechnicalAnalysis:
         if not isinstance(interval, int):
             raise TypeError("interval parameter is not intervaleric.")
 
-        if interval > self.total_periods or interval < 5 or interval > 200:
+        if interval < 5 or interval > 200:
             raise ValueError("interval is out of range")
 
         if len(self.df) < interval:
@@ -703,7 +699,7 @@ class TechnicalAnalysis:
         if not isinstance(period, int):
             raise TypeError("Period parameter is not perioderic.")
 
-        if period > self.total_periods or period < 5 or period > 200:
+        if period < 5 or period > 200:
             raise ValueError("Period is out of range")
 
         if len(self.df) < period:
@@ -717,7 +713,7 @@ class TechnicalAnalysis:
         if not isinstance(period, int):
             raise TypeError("Period parameter is not perioderic.")
 
-        if period > self.total_periods or period < 5 or period > 200:
+        if period < 5 or period > 200:
             raise ValueError("Period is out of range")
 
         if len(self.df) < period:
@@ -1044,7 +1040,7 @@ class TechnicalAnalysis:
         if not isinstance(period, int):
             raise TypeError("Period parameter is not perioderic.")
 
-        if period > self.total_periods or period < 5 or period > 200:
+        if period < 5 or period > 200:
             raise ValueError("Period is out of range")
 
         if len(self.df) < period:
@@ -1058,7 +1054,7 @@ class TechnicalAnalysis:
         if not isinstance(period, int):
             raise TypeError("Period parameter is not perioderic.")
 
-        if period > self.total_periods or period < 5 or period > 200:
+        if period < 5 or period > 200:
             raise ValueError("Period is out of range")
 
         if len(self.df) < period:
@@ -1068,10 +1064,6 @@ class TechnicalAnalysis:
 
     def addGoldenCross(self) -> None:
         """Add Golden Cross SMA50 over SMA200"""
-
-        if self.total_periods < 200:
-            self.df["goldencross"] = False
-            return
 
         if "sma50" not in self.df:
             self.addSMA(50)
@@ -1083,11 +1075,6 @@ class TechnicalAnalysis:
 
     def addDeathCross(self) -> None:
         """Add Death Cross SMA50 over SMA200"""
-
-        if self.total_periods < 200:
-            self.df["deathcross"] = False
-            self.df["bullsma50"] = False
-            return
 
         if "sma50" not in self.df:
             self.addSMA(50)
@@ -1274,9 +1261,6 @@ class TechnicalAnalysis:
 
     def addSMABuySignals(self) -> None:
         """Adds the SMA50/SMA200 buy and sell signals to the DataFrame"""
-
-        if self.total_periods < 200:
-            raise ValueError("Period is out of range")
 
         if not isinstance(self.df, DataFrame):
             raise TypeError("Pandas DataFrame required.")
