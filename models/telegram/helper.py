@@ -226,7 +226,8 @@ class TelegramHelper:
             id=2,
             from_user=self.config["telegram"]["user_id"],
             bot=Updater(self.config["telegram"]["token"],
-            use_context=True).bot,
+            use_context=True,
+        ),
             chat_instance="",
         )
 

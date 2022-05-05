@@ -65,7 +65,7 @@ class AuthAPI(AuthAPIBase):
         api_passphrase="",
         api_url="",
         cache_path="cache",
-        use_cache=True,
+        use_cache=False,
     ) -> None:
         """kucoin API object model
 
@@ -119,15 +119,19 @@ class AuthAPI(AuthAPIBase):
         self._api_passphrase = api_passphrase
         self._api_url = api_url
 
-        # Make the cache folder if it doesn't exist
+        if use_cache:
+            # Make the cache folder if it doesn't exist
 
-        if not os.path.exists(cache_path):
-            os.makedirs(cache_path)
+            if not os.path.exists(cache_path):
+                os.makedirs(cache_path)
 
-        self._cache_path = cache_path
-        self._cache_filepath = cache_path + os.path.sep + "kucoin_order_cache.json"
-        self._cache_lock_filepath = cache_path + os.path.sep + "kucoin_order_cache.lock"
+            self._cache_path = cache_path
+            self._cache_filepath = cache_path + os.path.sep + "kucoin_order_cache.json"
+            self._cache_lock_filepath = cache_path + os.path.sep + "kucoin_order_cache.lock"
+
         self.usekucoincache = use_cache
+        # use pagination if cache is enabled
+        self.usepagination = use_cache
 
     def handle_init_error(self, err: str) -> None:
         """Handle initialisation error"""
@@ -295,7 +299,7 @@ class AuthAPI(AuthAPIBase):
         if self.usekucoincache : result = self.buildOrderHistoryCache()
 
         # GET /orders?status
-        resp = self.authAPI("GET", f"api/v1/orders?symbol={market}", use_order_cache=self.usekucoincache, use_pagination=True)
+        resp = self.authAPI("GET", f"api/v1/orders?symbol={market}", use_order_cache=self.usekucoincache, use_pagination=self.usepagination)
         if len(resp) > 0:
             if status == "active":
                 df = resp.copy()[
@@ -892,21 +896,23 @@ class AuthAPI(AuthAPIBase):
             if isinstance(mjson, list):
                 df = pd.DataFrame.from_dict(mjson)
 
-            # Setup vars
-            current_page = None
-            max_pages = None
-            page_size = None
-
             if "data" in mjson:
                 mjson = mjson["data"]
-            if "currentPage" in mjson:
-                current_page = mjson["currentPage"]
-            if "totalPage" in mjson:
-                max_pages = mjson["totalPage"]
-            if "pageSize" in mjson:
-                page_size = mjson["pageSize"]
-                
-            #print(f"Pages : {current_page}/{max_pages}")
+
+            if use_pagination:
+                # Setup vars
+                current_page = None
+                max_pages = None
+                page_size = None
+
+                if "currentPage" in mjson:
+                    current_page = mjson["currentPage"]
+                if "totalPage" in mjson:
+                    max_pages = mjson["totalPage"]
+                if "pageSize" in mjson:
+                    page_size = mjson["pageSize"]
+                    
+                #print(f"Pages : {current_page}/{max_pages}")
 
             if "items" in mjson:
                 if isinstance(mjson["items"], list):
@@ -938,20 +944,21 @@ class AuthAPI(AuthAPIBase):
             else:
                 cache_df = None
             
-            # Get subsequent pages - if in original AuthAPI call
-            if max_pages != None:
-                if (not getting_pages) and (not use_order_cache) and (max_pages > current_page):
-                    page_counter = 1
-                    while page_counter <= max_pages:
-                        time.sleep(10)
-                        page_counter += 1
-                        append_df = self.authAPI(method=method, uri=orig_uri, payload=payload, getting_pages=True, page_num=page_counter, per_page=per_page)
-                        df = df.append(append_df)
-                        if page_counter == max_pages : break
+            if use_pagination:
+                # Get subsequent pages - if in original AuthAPI call
+                if max_pages != None:
+                    if (not getting_pages) and (not use_order_cache) and (max_pages > current_page):
+                        page_counter = 1
+                        while page_counter <= max_pages:
+                            time.sleep(10)
+                            page_counter += 1
+                            append_df = self.authAPI(method=method, uri=orig_uri, payload=payload, getting_pages=True, page_num=page_counter, per_page=per_page)
+                            df = df.append(append_df)
+                            if page_counter == max_pages : break
 
-            #Sort by created Date and only return symbol if that was requested
-            if symbol != None : df = df[df['symbol'] == symbol]
-            if 'createdAt' in df.columns: df = df.sort_values(by='createdAt', ascending=False)
+                #Sort by created Date and only return symbol if that was requested
+                if symbol != None : df = df[df['symbol'] == symbol]
+                if 'createdAt' in df.columns: df = df.sort_values(by='createdAt', ascending=False)
             return df
 
         except requests.ConnectionError as err:
@@ -1048,8 +1055,9 @@ class PublicAPI(AuthAPIBase):
                     df = websocket.candles.loc[websocket.candles["market"] == market]
                     using_websocket = True
                 except:
-                    pass
+                    using_websocket = False
 
+        # if not using websocket
         if websocket is None or (websocket is not None and using_websocket is False):
 
             resp = {}
@@ -1088,46 +1096,63 @@ class PublicAPI(AuthAPIBase):
                         f"api/v1/market/candles?type={granularity.to_medium}&symbol={market}",
                     )
 
-                if "data" not in resp:
-                    trycnt += 1
-                    if trycnt == (maxretry):
-                        Logger.warning(
-                            f"Kucoin API Error for Historical Data - 'data' not in response - attempted {trycnt} times"
-                        )
-                    time.sleep(15)
-                else:
+                try:
+#                    if "data" in resp:
+                    # convert the API response into a Pandas DataFrame
+                    df = pd.DataFrame(
+                        resp["data"],
+                        columns=["time", "open", "close", "high", "low", "volume", "turnover"],
+                    )
+                    # reverse the order of the response with earliest last
+                    df = df.iloc[::-1].reset_index()
+
+                    try:
+                        freq = granularity.get_frequency
+                    except:
+                        freq = "D"
+
+#                    now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+
+                    # convert the DataFrame into a time series with the date as the index/key
+                    tsidx = pd.DatetimeIndex(
+                        pd.to_datetime(df["time"], unit="s"), dtype="datetime64[ns]", freq=freq
+                    )
+                    df.set_index(tsidx, inplace=True)
+                    df = df.drop(columns=["time", "index"])
+                    df.index.names = ["ts"]
+                    df["date"] = tsidx
+
                     break
 
-            # convert the API response into a Pandas DataFrame
-            df = pd.DataFrame(
-                resp["data"],
-                columns=["epoch", "open", "close", "high", "low", "volume", "turnover"],
-            )
-            # reverse the order of the response with earliest last
-            df = df.iloc[::-1].reset_index()
+                except ValueError as err:
+                    trycnt += 1
+                    if trycnt == (maxretry):
+                        raise Exception(
+                            f"Kucoin API Error for Historical Data - attempted {trycnt} times - Error: {err}"
+                        )
+                    time.sleep(15)
 
-            try:
-                freq = granularity.get_frequency
-            except:
-                freq = "D"
+            else:
+                raise Exception(f"Kucoin API Error for Historical Data - attempted {trycnt} times.")
 
-            # convert the DataFrame into a time series with the date as the index/key
-            try:
-                tsidx = pd.DatetimeIndex(
-                    pd.to_datetime(df["epoch"], unit="s"), dtype="datetime64[ns]", freq=freq
-                )
-                df.set_index(tsidx, inplace=True)
-                df = df.drop(columns=["epoch", "index"])
-                df.index.names = ["ts"]
-                df["date"] = tsidx
-            except ValueError:
-                tsidx = pd.DatetimeIndex(
-                    pd.to_datetime(df["epoch"], unit="s", origin='1970-01-01'), dtype="datetime64[ns]"
-                )
-                df.set_index(tsidx, inplace=True)
-                df = df.drop(columns=["epoch", "index"])
-                df.index.names = ["ts"]
-                df["date"] = tsidx
+#                        tsidx = pd.DatetimeIndex(
+#        #                    pd.to_datetime(df["time"], unit="s", origin='1970-01-01'), dtype="datetime64[ns]"
+#                            self.convert_time(df["time"])
+#                        )
+#                        df.set_index(tsidx, inplace=True)
+#                        df = df.drop(columns=["time", "index"])
+#                        df.index.names = ["ts"]
+#                        df["date"] = tsidx
+
+
+#                else:
+#                    trycnt += 1
+#                    if trycnt == (maxretry):
+#                        Logger.warning(
+#                            f"Kucoin API Error for Historical Data - 'data' not in response - attempted {trycnt} times"
+#                        )
+#                    time.sleep(15)
+
 
             df["market"] = market
             df["granularity"] = granularity.to_medium
@@ -1137,11 +1162,11 @@ class PublicAPI(AuthAPIBase):
                 ["date", "market", "granularity", "low", "high", "open", "close", "volume"]
             ]
 
-            df["low"] = df["low"].astype(float)
-            df["high"] = df["high"].astype(float)
-            df["open"] = df["open"].astype(float)
-            df["close"] = df["close"].astype(float)
-            df["volume"] = df["volume"].astype(float)
+            df["low"] = df["low"].astype(float).fillna(0)
+            df["high"] = df["high"].astype(float).fillna(0)
+            df["open"] = df["open"].astype(float).fillna(0)
+            df["close"] = df["close"].astype(float).fillna(0)
+            df["volume"] = df["volume"].astype(float).fillna(0)
             # convert_columns = {'close': float}
             # resp.asType(convert_columns)
 
@@ -1149,12 +1174,32 @@ class PublicAPI(AuthAPIBase):
             df.reset_index()
         return df
 
-    def getTicker(self, market: str = DEFAULT_MARKET) -> tuple:
+    def getTicker(self, market: str = DEFAULT_MARKET, websocket=None) -> tuple:
         """Retrieves the market ticker"""
 
         # validates the market is syntactically correct
         if not self._isMarketValid(market):
             raise TypeError("Kucoin market required.")
+
+        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+
+        if websocket is not None and websocket.tickers is not None:
+            try:
+                row = websocket.tickers.loc[websocket.tickers["market"] == market]
+                ticker_date = datetime.strptime(
+                        re.sub(r".0*$", "", str(row["date"].values[0])),
+                        "%Y-%m-%dT%H:%M:%S",
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                ticker_price = float(row["price"].values[0])
+            except:
+                pass
+
+            if ticker_date is None:
+                ticker_date = now
+            return (
+                ticker_date,
+                ticker_price
+            )
 
         resp = {}
         trycnt, maxretry = (1, 5)
@@ -1162,12 +1207,13 @@ class PublicAPI(AuthAPIBase):
 
             resp = self.authAPI("GET", f"api/v1/market/orderbook/level1?symbol={market}")
 
-            if "data" not in resp: # if not proper response, retry
+            if "data" not in resp or "price" not in resp["data"]: # if not proper response, retry
                 trycnt += 1
                 if trycnt == maxretry:
                     Logger.warning(
                         f"Kucoin API Error for getTicker - 'data' not in response - attempted {trycnt} times"
                     )
+                    return (now, 0.0)
                 time.sleep(15)
             elif "time" in resp["data"]: # if time returned, check format
                 resptime = ""
@@ -1192,10 +1238,10 @@ class PublicAPI(AuthAPIBase):
                         Logger.warning(
                             f"Kucoin API Error for Get Ticker - attempted {trycnt} times."
                         )
+                        return (now, 0.0)
                     time.sleep(15)
             else: # time wasn't in response
-                now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-                return (now, 0.0)
+                return (now, float(resp["data"]["price"]))
 
     def getTime(self) -> datetime:
         """Retrieves the exchange time"""
@@ -1388,6 +1434,7 @@ class WebSocket(AuthAPIBase):
                     msg = json.loads(data)
                 else:
                     msg = {}
+# testing to see if it helps JSON errors
             except ValueError as e:
                 self.on_error(e)
             except Exception as e:
@@ -1485,9 +1532,9 @@ class WebSocketClient(WebSocket):
             "wss://ws-api.kucoin.com",
         ]
 
-        # validate Coinbase Pro Websocket URL
+        # validate Kucoin Websocket URL
         if ws_url not in valid_ws_urls:
-            raise ValueError("Coinbase Pro WebSocket URL is invalid")
+            raise ValueError("Kucoin WebSocket URL is invalid")
 
         # if ws_url[-1] != "/":
         #     ws_url = ws_url + "/"
@@ -1514,8 +1561,8 @@ class WebSocketClient(WebSocket):
             self.time_elapsed = round(
                 (datetime.now() - self.start_time).total_seconds()
             )
-
-        if "data" in msg and "time" in msg["data"] and "price" in msg["data"]:
+# if any new errors, len(msg) > 0 is new
+        if len(msg) > 0 and "data" in msg and "time" in msg["data"] and "price" in msg["data"]:
             # create dataframe from websocket message
             df = pd.DataFrame(
                 columns=["date", "market", "price"],
