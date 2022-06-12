@@ -800,6 +800,7 @@ class AuthAPI(AuthAPIBase):
         if not isinstance(uri, str):
             raise TypeError("URI is not a string.")
 
+        error, err = (None, None)
         trycnt, maxretry = (1, 5)
         while trycnt <= maxretry:
             try:
@@ -923,29 +924,23 @@ class AuthAPI(AuthAPIBase):
                     return df
 
             except requests.ConnectionError as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "ConnectionError")
-                time.sleep(15)
+                error = "ConnectionError"
 
             except requests.exceptions.HTTPError as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "HTTPError")
-                time.sleep(15)
+                error = "HTTPError"
 
             except requests.Timeout as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "Timeout")
-                time.sleep(15)
+                error = "Timeout"
 
             except json.decoder.JSONDecodeError as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "JSONDecodeError")
-                time.sleep(15)
+                error = "JSONDecodeError"
 
             except Exception as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "Exception")
-                time.sleep(15)
+                error = "GeneralException"
+
+            if trycnt >= maxretry:
+                return self.handle_api_error(err, error)
+            time.sleep(15)
 
     def handle_api_error(self, err: str, reason: str) -> pd.DataFrame:
         """Handle API errors"""
@@ -1223,6 +1218,7 @@ class PublicAPI(AuthAPIBase):
             raise TypeError("URI is not a string.")
 
         # If API returns an error status code, retry request up to 5 times
+        error, err = (None, None)
         trycnt, maxretry = (1, 5)
         while trycnt <= maxretry:
             try:
@@ -1239,37 +1235,28 @@ class PublicAPI(AuthAPIBase):
                     message = f"{method} ({resp.status_code}) {self._api_url}{uri} - {resp_message}"
                     if trycnt >= maxretry:
                         return self.handle_api_error(message, "KucoinAPIError")
-#                            Logger.warning(
-#                                f"Kucoin API request error - attempted {trycnt} times: {message}"
-#                            )
                     time.sleep(15)
                 else:
                     return resp.json()
 
             except requests.ConnectionError as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "ConnectionError")
-                time.sleep(15)
+                error = "ConnectionError"
 
             except requests.exceptions.HTTPError as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "HTTPError")
-                time.sleep(15)
+                error = "HTTPError"
 
             except requests.Timeout as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "Timeout")
-                time.sleep(15)
+                error = "Timeout"
 
             except json.decoder.JSONDecodeError as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "JSONDecodeError")
-                time.sleep(15)
+                error = "JSONDecodeError"
 
             except Exception as err:
-                if trycnt >= maxretry:
-                    return self.handle_api_error(err, "Exception")
-                time.sleep(15)
+                error = "GeneralException"
+
+            if trycnt >= maxretry:
+                return self.handle_api_error(err, error)
+            time.sleep(15)
 
     def handle_api_error(self, err: str, reason: str) -> dict:
         """Handle API errors"""
