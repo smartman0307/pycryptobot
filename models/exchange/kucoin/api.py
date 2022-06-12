@@ -14,7 +14,7 @@ import sys
 import os
 import pandas as pd
 from numpy import floor
-from datetime import datetime
+from datetime import datetime, timezone
 from requests import Request
 from models.helper.LogHelper import Logger
 from requests import Request
@@ -489,16 +489,6 @@ class AuthAPI(AuthAPIBase):
 
         return df
 
-    # def getTime(self) -> datetime:
-    #    """Retrieves the exchange time"""
-
-    #    try:
-    #        resp = self.authAPI("GET", "api/v1/timestamp")
-    #        epoch = int(resp["data"] / 1000)
-    #        return datetime.fromtimestamp(epoch)
-    #    except:
-    #        return None
-
     def marketBuy(self, market: str = "", quote_quantity: float = 0) -> pd.DataFrame:
         """Executes a market buy providing a funding amount"""
 
@@ -933,29 +923,23 @@ class AuthAPI(AuthAPIBase):
                     return df
 
             except requests.ConnectionError as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "ConnectionError")
-                time.sleep(15)
+                error = "ConnectionError"
 
             except requests.exceptions.HTTPError as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "HTTPError")
-                time.sleep(15)
+                error = "HTTPError"
 
             except requests.Timeout as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "Timeout")
-                time.sleep(15)
+                error = "Timeout"
 
             except json.decoder.JSONDecodeError as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "JSONDecodeError")
-                time.sleep(15)
+                error = "JSONDecodeError"
 
             except Exception as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "Exception")
-                time.sleep(15)
+                error = "GeneralException"
+
+            if trycnt >= maxretry:
+                return self.handle_api_error(err, error)
+            time.sleep(15)
 
     def handle_api_error(self, err: str, reason: str) -> pd.DataFrame:
         """Handle API errors"""
@@ -1093,6 +1077,8 @@ class PublicAPI(AuthAPIBase):
                         except:
                             freq = "D"
 
+    #                    now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+
                         # convert the DataFrame into a time series with the date as the index/key
                         tsidx = pd.DatetimeIndex(
                             pd.to_datetime(df["time"], unit="s"), dtype="datetime64[ns]", freq=freq
@@ -1116,6 +1102,15 @@ class PublicAPI(AuthAPIBase):
                             f"Kucoin API Error for Historical Data - attempted {trycnt} times - Error: {err}"
                         )
                     time.sleep(15)
+
+#                        tsidx = pd.DatetimeIndex(
+#        #                    pd.to_datetime(df["time"], unit="s", origin='1970-01-01'), dtype="datetime64[ns]"
+#                            self.convert_time(df["time"])
+#                        )
+#                        df.set_index(tsidx, inplace=True)
+#                        df = df.drop(columns=["time", "index"])
+#                        df.index.names = ["ts"]
+#                        df["date"] = tsidx
 
             df["market"] = market
             df["granularity"] = granularity.to_medium
@@ -1158,7 +1153,7 @@ class PublicAPI(AuthAPIBase):
                 pass
 
             if ticker_date is None:
-                ticker_date = now
+                ticker_date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             return (
                 ticker_date,
                 ticker_price
@@ -1169,21 +1164,22 @@ class PublicAPI(AuthAPIBase):
         while trycnt <= maxretry:
             try:
                 resp = self.authAPI("GET", f"api/v1/market/orderbook/level1?symbol={market}")
-
                 return (
-                    datetime.strptime(
-                        str(datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)),
-                        "%Y-%m-%d %H:%M:%S.%f",
-                    ),
+#                    datetime.strptime(
+#                        str(datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)),
+#                        "%Y-%m-%d %H:%M:%S.%f",
+#                    ),
+                    datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                     float(resp["data"]["price"])
                 )
+
             except ValueError as err:
                 trycnt += 1
                 if trycnt >= maxretry:
                     Logger.warning(
                         f"Kucoin API Error for Get Ticker - attempted {trycnt} times - Error: {err}"
                     )
-                    return (now, 0.0)
+                    return (datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), 0.0)
                 time.sleep(15)
 
     def getTime(self) -> datetime:
@@ -1235,31 +1231,33 @@ class PublicAPI(AuthAPIBase):
                 if resp.status_code != 200:
                     resp_message = resp.json()["msg"]
                     message = f"{method} ({resp.status_code}) {self._api_url}{uri} - {resp_message}"
-                    if trycnt == maxretry:
+                    if trycnt >= maxretry:
                         return self.handle_api_error(message, "KucoinAPIError")
+#                            Logger.warning(
+#                                f"Kucoin API request error - attempted {trycnt} times: {message}"
+#                            )
                     time.sleep(15)
                 else:
                     return resp.json()
 
             except requests.ConnectionError as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "ConnectionError")
-                time.sleep(15)
+                error = "ConnectionError"
 
             except requests.exceptions.HTTPError as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "HTTPError")
-                time.sleep(15)
+                error = "HTTPError"
 
             except requests.Timeout as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "Timeout")
-                time.sleep(15)
+                error = "Timeout"
 
             except json.decoder.JSONDecodeError as err:
-                if trycnt == maxretry:
-                    return self.handle_api_error(err, "JSONDecodeError")
-                time.sleep(15)
+                error = "JSONDecodeError"
+
+            except Exception as err:
+                error = "GeneralException"
+
+            if trycnt >= maxretry:
+                return self.handle_api_error(err, error)
+            time.sleep(15)
 
     def handle_api_error(self, err: str, reason: str) -> dict:
         """Handle API errors"""

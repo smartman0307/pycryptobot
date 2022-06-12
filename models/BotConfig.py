@@ -136,10 +136,15 @@ class BotConfig:
         self.ema1226_6h_cache = None
         self.sma50200_1h_cache = None
 
-        self.EMA1hBull = False
-        self.EMA6hBull = False
+        self.ticker_date = None
+        self.ticker_price = None
+        self.df_data = list(range(0,10)) #[0,1,2,3,4,5,6,7,8,9]
 
         self.sim_smartswitch = False
+
+        self.usekucoincache = False
+        self.adjust_total_periods = 300
+        self.manual_trades_only = False
 
         self.recv_window = self._set_recv_window()
 
@@ -162,9 +167,6 @@ class BotConfig:
         self.enable_atr72_pcnt = True
         self.enable_buy_next = True
         self.enable_volume = False
-        self.usekucoincache = False
-        self.adjust_total_periods = 300
-        self.manual_trades_only = False
         # print(self.startmethod)
 
         # set defaults
@@ -452,7 +454,7 @@ class BotConfig:
         )
         parser.add_argument(
             "--preventloss",
-            type=int,
+            action="store_true",
             help="optionally sell before margin is negative",
         )
         parser.add_argument(
