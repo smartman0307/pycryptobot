@@ -14,7 +14,7 @@ import sys
 import os
 import pandas as pd
 from numpy import floor
-from datetime import datetime, timezone
+from datetime import datetime
 from requests import Request
 from models.helper.LogHelper import Logger
 from requests import Request
@@ -65,7 +65,7 @@ class AuthAPI(AuthAPIBase):
         api_passphrase="",
         api_url="",
         cache_path="cache",
-        use_cache=False,
+        use_cache=True,
     ) -> None:
         """kucoin API object model
 
@@ -119,19 +119,15 @@ class AuthAPI(AuthAPIBase):
         self._api_passphrase = api_passphrase
         self._api_url = api_url
 
-        if use_cache:
-            # Make the cache folder if it doesn't exist
+        # Make the cache folder if it doesn't exist
 
-            if not os.path.exists(cache_path):
-                os.makedirs(cache_path)
+        if not os.path.exists(cache_path):
+            os.makedirs(cache_path)
 
-            self._cache_path = cache_path
-            self._cache_filepath = cache_path + os.path.sep + "kucoin_order_cache.json"
-            self._cache_lock_filepath = cache_path + os.path.sep + "kucoin_order_cache.lock"
-
+        self._cache_path = cache_path
+        self._cache_filepath = cache_path + os.path.sep + "kucoin_order_cache.json"
+        self._cache_lock_filepath = cache_path + os.path.sep + "kucoin_order_cache.lock"
         self.usekucoincache = use_cache
-        # use pagination if cache is enabled
-        self.usepagination = use_cache
 
     def handle_init_error(self, err: str) -> None:
         """Handle initialisation error"""
@@ -299,7 +295,7 @@ class AuthAPI(AuthAPIBase):
         if self.usekucoincache : result = self.buildOrderHistoryCache()
 
         # GET /orders?status
-        resp = self.authAPI("GET", f"api/v1/orders?symbol={market}", use_order_cache=self.usekucoincache, use_pagination=self.usepagination)
+        resp = self.authAPI("GET", f"api/v1/orders?symbol={market}", use_order_cache=self.usekucoincache, use_pagination=True)
         if len(resp) > 0:
             if status == "active":
                 df = resp.copy()[
@@ -488,6 +484,16 @@ class AuthAPI(AuthAPIBase):
         df["size"] = df["size"].fillna(df["filled"])
 
         return df
+
+    # def getTime(self) -> datetime:
+    #    """Retrieves the exchange time"""
+
+    #    try:
+    #        resp = self.authAPI("GET", "api/v1/timestamp")
+    #        epoch = int(resp["data"] / 1000)
+    #        return datetime.fromtimestamp(epoch)
+    #    except:
+    #        return None
 
     def marketBuy(self, market: str = "", quote_quantity: float = 0) -> pd.DataFrame:
         """Executes a market buy providing a funding amount"""
@@ -791,6 +797,10 @@ class AuthAPI(AuthAPIBase):
     def authAPI(self, method: str, uri: str, payload: str = "", use_order_cache: bool = False, getting_pages: bool = False, page_num: int = 1, per_page: int = 500, use_pagination: bool = False) -> pd.DataFrame:
         """Initiates a REST API call"""
 
+        # Delay if we hit the ratelimit
+        RateLimitDelay = 5
+        HitRateLimitCounter = 0
+
         if not isinstance(method, str):
             raise TypeError("Method is not a string.")
 
@@ -800,143 +810,164 @@ class AuthAPI(AuthAPIBase):
         if not isinstance(uri, str):
             raise TypeError("URI is not a string.")
 
-        reason, msg = (None, None)
-        trycnt, maxretry, connretry = (1, 5, 10)
-        while trycnt <= connretry:
+        # Store the original URI for use later
+        orig_uri = uri
+        symbol = ""
+
+        if method == "GET" and use_pagination and getting_pages:
+            # We are getting this and subsequent pages
+            uri = uri + f"&currentPage={page_num}&pageSize={per_page}"
+        elif method == "GET" and use_pagination and not getting_pages:
+            uri = uri + f"&currentPage=1&pageSize={per_page}"
+
+        #print(uri)
+        #Logger.info(uri)
+
+        # Get the symbol from the URL if it exists in parameters
+        if use_order_cache and ("symbol" in (self._api_url + uri)) and not ("symbols" in (self._api_url + uri)): 
+            #print (self._api_url + uri)
             try:
-                # Store the original URI for use later
-                orig_uri = uri
-                symbol = ""
+                symbol = parse.parse_qs(parse.urlparse(self._api_url + uri).query)['symbol'][0]
+            except:
+                pass
+            if len(symbol) == 0 : symbol = None
+            #print(f"Symbol from URI - {symbol}")
+        else:
+            symbol = None
 
-                if method == "GET" and use_pagination and getting_pages:
-                    # We are getting this and subsequent pages
-                    uri = uri + f"&currentPage={page_num}&pageSize={per_page}"
-                elif method == "GET" and use_pagination and not getting_pages:
-                    uri = uri + f"&currentPage=1&pageSize={per_page}"
+        try:
+            if method == "DELETE":
+                resp = requests.delete(self._api_url + uri, auth=self)
+            elif method == "GET":
+                # resp = requests.request('GET', self._api_url + uri, headers=headers)
+                resp = requests.get(self._api_url + uri, auth=self)
+            elif method == "POST":
+                resp = requests.post(self._api_url + uri, json=payload, auth=self)
 
-                # Get the symbol from the URL if it exists in parameters
-                if use_order_cache and ("symbol" in (self._api_url + uri)) and not ("symbols" in (self._api_url + uri)): 
-                    try:
-                        symbol = parse.parse_qs(parse.urlparse(self._api_url + uri).query)['symbol'][0]
-                    except:
-                        pass
-                    if len(symbol) == 0 : symbol = None
-                else:
-                    symbol = None
-
+            while resp.status_code == 429 and HitRateLimitCounter < 5:
+                # Hit the rate limit - Delay and retry. 
+                HitRateLimitCounter += 1
+                time.sleep(RateLimitDelay)
                 if method == "DELETE":
                     resp = requests.delete(self._api_url + uri, auth=self)
                 elif method == "GET":
+                    # resp = requests.request('GET', self._api_url + uri, headers=headers)
                     resp = requests.get(self._api_url + uri, auth=self)
                 elif method == "POST":
                     resp = requests.post(self._api_url + uri, json=payload, auth=self)
 
-                trycnt += 1
-                resp.raise_for_status()
+            # Logger.debug(resp.json())
+            if resp.status_code != 200:
+                if self.die_on_api_error or resp.status_code == 401:
+                    # disable traceback
+                    sys.tracebacklimit = 0
 
-                # Logger.debug(resp.json())
-                if resp.status_code == 200 and len(resp.json()) > 0:
-                    mjson = resp.json()
-                    if isinstance(mjson, list):
-                        df = pd.DataFrame.from_dict(mjson)
-
-                    if "data" in mjson:
-                        mjson = mjson["data"]
-
-                    if use_pagination:
-                        # Setup vars
-                        current_page = None
-                        max_pages = None
-                        page_size = None
-
-                        if "currentPage" in mjson:
-                            current_page = mjson["currentPage"]
-                        if "totalPage" in mjson:
-                            max_pages = mjson["totalPage"]
-                        if "pageSize" in mjson:
-                            page_size = mjson["pageSize"]
-                            
-                    if "items" in mjson:
-                        if isinstance(mjson["items"], list):
-                            df = pd.DataFrame.from_dict(mjson["items"])
-                        else:
-                            df = pd.DataFrame(mjson["items"], index=[0])
-                    elif "data" in mjson:
-                        if isinstance(mjson, list):
-                            df = pd.DataFrame.from_dict(mjson)
-                        else:
-                            df = pd.DataFrame(mjson, index=[0])
-                    else:
-                        if isinstance(mjson, list):
-                            df = pd.DataFrame.from_dict(mjson)
-                        else:
-                            df = pd.DataFrame(mjson, index=[0])
-
-                    #If a previous cache file exists - load it up into the df
-                    if use_order_cache and exists(self._cache_filepath) and "v1/orders" in uri and method == "GET":
-                        if exists(self._cache_lock_filepath):
-                            #Lock file exists - wait
-                            while exists(self._cache_lock_filepath):
-                                time.sleep(5)
-                        cache_df = pd.read_json(self._cache_filepath)
-                        df = df.append(cache_df)
-                        df = df.drop_duplicates('id')
-                    else:
-                        cache_df = None
-                    
-                    if use_pagination:
-                        # Get subsequent pages - if in original AuthAPI call
-                        if max_pages != None:
-                            if (not getting_pages) and (not use_order_cache) and (max_pages > current_page):
-                                page_counter = 1
-                                while page_counter <= max_pages:
-                                    time.sleep(10)
-                                    page_counter += 1
-                                    append_df = self.authAPI(method=method, uri=orig_uri, payload=payload, getting_pages=True, page_num=page_counter, per_page=per_page)
-                                    df = df.append(append_df)
-                                    if page_counter == max_pages : break
-
-                        #Sort by created Date and only return symbol if that was requested
-                        if symbol != None : df = df[df['symbol'] == symbol]
-                        if 'createdAt' in df.columns: df = df.sort_values(by='createdAt', ascending=False)
-
-                    return df
-
+                    raise Exception(
+                        method.upper()
+                        + " ("
+                        + "{}".format(resp.status_code)
+                        + ") "
+                        + self._api_url
+                        + uri
+                        + " - "
+                        + "{}".format(resp.json()["msg"])
+                    )
                 else:
-                    msg =   f"Kucoin authAPI Error: {method.upper()} ({resp.status_code}) {self._api_url} {uri} - {resp.json()['msg']}"
-                    reason = "Invalid Response"
+                    Logger.error(
+                        "Kucoin authAPI Error: "
+                        + method.upper()
+                        + " ("
+                        + "{}".format(resp.status_code)
+                        + ") "
+                        + self._api_url
+                        + uri
+                        + " - "
+                        + "{}".format(resp.json()["msg"])
+                    )
+                    return pd.DataFrame()
 
-            except requests.ConnectionError as err:
-                reason, msg = ("ConnectionError", err)
+            resp.raise_for_status()
 
-            except requests.exceptions.HTTPError as err:
-                reason, msg = ("HTTPError", err)
+            mjson = resp.json()
+            if isinstance(mjson, list):
+                df = pd.DataFrame.from_dict(mjson)
 
-            except requests.Timeout as err:
-                reason, msg = ("TimeoutError", err)
+            # Setup vars
+            current_page = None
+            max_pages = None
+            page_size = None
 
-            except json.decoder.JSONDecodeError as err:
-                reason, msg = ("JSONDecodeError", err)
+            if "data" in mjson:
+                mjson = mjson["data"]
+            if "currentPage" in mjson:
+                current_page = mjson["currentPage"]
+            if "totalPage" in mjson:
+                max_pages = mjson["totalPage"]
+            if "pageSize" in mjson:
+                page_size = mjson["pageSize"]
+                
+            #print(f"Pages : {current_page}/{max_pages}")
 
-            except Exception as err:
-                reason, msg = ("GeneralException", err)
-
-            if trycnt >= maxretry:
-                if reason in ("ConnectionError", "HTTPError") and trycnt <= connretry:
-                    Logger.error(f"{reason}:  URI: {uri} trying again.  Attempt: {trycnt}")
-                    if trycnt > 5:
-                        time.sleep(30)
+            if "items" in mjson:
+                if isinstance(mjson["items"], list):
+                    df = pd.DataFrame.from_dict(mjson["items"])
                 else:
-                    if msg is None:
-                        msg = f"Uknown Kucoin Private API Error: call to {uri} attempted {trycnt} times, resulted in error"
-                    if reason is None:
-                        reason = "Unknown Error"
-                    return self.handle_api_error(msg, reason)
+                    df = pd.DataFrame(mjson["items"], index=[0])
+            elif "data" in mjson:
+                if isinstance(mjson, list):
+                    df = pd.DataFrame.from_dict(mjson)
+                else:
+                    df = pd.DataFrame(mjson, index=[0])
             else:
-                time.sleep(15)
+                if isinstance(mjson, list):
+                    df = pd.DataFrame.from_dict(mjson)
+                else:
+                    df = pd.DataFrame(mjson, index=[0])
 
-        else:
-            return self.handle_api_error(f"Kucoin API Error: call to {uri} attempted {trycnt} times without valid response", "Kucoin Private API Error")
+            #df = df[~df.tags.notnull()]
+
+            #If a previous cache file exists - load it up into the df
+            if use_order_cache and exists(self._cache_filepath) and "v1/orders" in uri and method == "GET":
+                if exists(self._cache_lock_filepath):
+                    #Lock file exists - wait
+                    while exists(self._cache_lock_filepath):
+                        time.sleep(5)
+                cache_df = pd.read_json(self._cache_filepath)
+                df = df.append(cache_df)
+                df = df.drop_duplicates('id')
+            else:
+                cache_df = None
+            
+            # Get subsequent pages - if in original AuthAPI call
+            if max_pages != None:
+                if (not getting_pages) and (not use_order_cache) and (max_pages > current_page):
+                    page_counter = 1
+                    while page_counter <= max_pages:
+                        time.sleep(10)
+                        page_counter += 1
+                        append_df = self.authAPI(method=method, uri=orig_uri, payload=payload, getting_pages=True, page_num=page_counter, per_page=per_page)
+                        df = df.append(append_df)
+                        if page_counter == max_pages : break
+
+            #Sort by created Date and only return symbol if that was requested
+            if symbol != None : df = df[df['symbol'] == symbol]
+            if 'createdAt' in df.columns: df = df.sort_values(by='createdAt', ascending=False)
+            return df
+
+        except requests.ConnectionError as err:
+            return self.handle_api_error(err, "ConnectionError")
+
+        except requests.exceptions.HTTPError as err:
+            return self.handle_api_error(err, "HTTPError")
+
+        except requests.Timeout as err:
+            return self.handle_api_error(err, "Timeout")
+
+        except json.decoder.JSONDecodeError as err:
+            return self.handle_api_error(err, "JSONDecodeError")
+
+        except Exception as err:
+            return self.handle_api_error(err, "Exception")
 
     def handle_api_error(self, err: str, reason: str) -> pd.DataFrame:
         """Handle API errors"""
@@ -1017,9 +1048,8 @@ class PublicAPI(AuthAPIBase):
                     df = websocket.candles.loc[websocket.candles["market"] == market]
                     using_websocket = True
                 except:
-                    using_websocket = False
+                    pass
 
-        # if not using websocket
         if websocket is None or (websocket is not None and using_websocket is False):
 
             resp = {}
@@ -1058,54 +1088,46 @@ class PublicAPI(AuthAPIBase):
                         f"api/v1/market/candles?type={granularity.to_medium}&symbol={market}",
                     )
 
-                trycnt += 1
-                try:
-                    if "data" in resp:
-                        # convert the API response into a Pandas DataFrame
-                        df = pd.DataFrame(
-                            resp["data"],
-                            columns=["time", "open", "close", "high", "low", "volume", "turnover"],
-                        )
-                        # reverse the order of the response with earliest last
-                        df = df.iloc[::-1].reset_index()
-
-                        try:
-                            freq = granularity.get_frequency
-                        except:
-                            freq = "D"
-
-                        # convert the DataFrame into a time series with the date as the index/key
-                        tsidx = pd.DatetimeIndex(
-                            pd.to_datetime(df["time"], unit="s"), dtype="datetime64[ns]", freq=freq
-                        )
-                        df.set_index(tsidx, inplace=True)
-                        df = df.drop(columns=["time", "index"])
-                        df.index.names = ["ts"]
-                        df["date"] = tsidx
-
-                        break
-                    else:
-                        if trycnt >= (maxretry):
-                            raise Exception(
-                                f"Kucoin API Error for Historical Data - attempted {trycnt} times - API did not return correct response"
-                            )
-                        time.sleep(15)
-
-                except Exception as err:
-                    if trycnt >= (maxretry):
-                        raise Exception(
-                            f"Kucoin API Error for Historical Data - attempted {trycnt} times - Error: {err}"
+                if "data" not in resp:
+                    trycnt += 1
+                    if trycnt == (maxretry):
+                        Logger.warning(
+                            f"Kucoin API Error for Historical Data - 'data' not in response - attempted {trycnt} times"
                         )
                     time.sleep(15)
+                else:
+                    break
 
-#                        tsidx = pd.DatetimeIndex(
-#        #                    pd.to_datetime(df["time"], unit="s", origin='1970-01-01'), dtype="datetime64[ns]"
-#                            self.convert_time(df["time"])
-#                        )
-#                        df.set_index(tsidx, inplace=True)
-#                        df = df.drop(columns=["time", "index"])
-#                        df.index.names = ["ts"]
-#                        df["date"] = tsidx
+            # convert the API response into a Pandas DataFrame
+            df = pd.DataFrame(
+                resp["data"],
+                columns=["epoch", "open", "close", "high", "low", "volume", "turnover"],
+            )
+            # reverse the order of the response with earliest last
+            df = df.iloc[::-1].reset_index()
+
+            try:
+                freq = granularity.get_frequency
+            except:
+                freq = "D"
+
+            # convert the DataFrame into a time series with the date as the index/key
+            try:
+                tsidx = pd.DatetimeIndex(
+                    pd.to_datetime(df["epoch"], unit="s"), dtype="datetime64[ns]", freq=freq
+                )
+                df.set_index(tsidx, inplace=True)
+                df = df.drop(columns=["epoch", "index"])
+                df.index.names = ["ts"]
+                df["date"] = tsidx
+            except ValueError:
+                tsidx = pd.DatetimeIndex(
+                    pd.to_datetime(df["epoch"], unit="s", origin='1970-01-01'), dtype="datetime64[ns]"
+                )
+                df.set_index(tsidx, inplace=True)
+                df = df.drop(columns=["epoch", "index"])
+                df.index.names = ["ts"]
+                df["date"] = tsidx
 
             df["market"] = market
             df["granularity"] = granularity.to_medium
@@ -1115,65 +1137,65 @@ class PublicAPI(AuthAPIBase):
                 ["date", "market", "granularity", "low", "high", "open", "close", "volume"]
             ]
 
-            df["low"] = df["low"].astype(float).fillna(0)
-            df["high"] = df["high"].astype(float).fillna(0)
-            df["open"] = df["open"].astype(float).fillna(0)
-            df["close"] = df["close"].astype(float).fillna(0)
-            df["volume"] = df["volume"].astype(float).fillna(0)
+            df["low"] = df["low"].astype(float)
+            df["high"] = df["high"].astype(float)
+            df["open"] = df["open"].astype(float)
+            df["close"] = df["close"].astype(float)
+            df["volume"] = df["volume"].astype(float)
+            # convert_columns = {'close': float}
+            # resp.asType(convert_columns)
 
             # reset pandas dataframe index
             df.reset_index()
         return df
 
-    def getTicker(self, market: str = DEFAULT_MARKET, websocket=None) -> tuple:
+    def getTicker(self, market: str = DEFAULT_MARKET) -> tuple:
         """Retrieves the market ticker"""
 
         # validates the market is syntactically correct
         if not self._isMarketValid(market):
             raise TypeError("Kucoin market required.")
 
-        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-
-        if websocket is not None and websocket.tickers is not None:
-            try:
-                row = websocket.tickers.loc[websocket.tickers["market"] == market]
-                ticker_date = datetime.strptime(
-                        re.sub(r".0*$", "", str(row["date"].values[0])),
-                        "%Y-%m-%dT%H:%M:%S",
-                    ).strftime("%Y-%m-%d %H:%M:%S")
-                ticker_price = float(row["price"].values[0])
-            except:
-                pass
-
-            if ticker_date is None:
-                ticker_date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            return (
-                ticker_date,
-                ticker_price
-            )
-
         resp = {}
         trycnt, maxretry = (1, 5)
         while trycnt <= maxretry:
-            try:
-                resp = self.authAPI("GET", f"api/v1/market/orderbook/level1?symbol={market}")
-                return (
-#                    datetime.strptime(
-#                        str(datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)),
-#                        "%Y-%m-%d %H:%M:%S.%f",
-#                    ),
-                    datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                    float(resp["data"]["price"])
-                )
 
-            except ValueError as err:
+            resp = self.authAPI("GET", f"api/v1/market/orderbook/level1?symbol={market}")
+
+            if "data" not in resp: # if not proper response, retry
                 trycnt += 1
-                if trycnt >= maxretry:
+                if trycnt == maxretry:
                     Logger.warning(
-                        f"Kucoin API Error for Get Ticker - attempted {trycnt} times - Error: {err}"
+                        f"Kucoin API Error for getTicker - 'data' not in response - attempted {trycnt} times"
                     )
-                    return (datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"), 0.0)
                 time.sleep(15)
+            elif "time" in resp["data"]: # if time returned, check format
+                resptime = ""
+                respprice = ""
+                try:
+                    resptime = datetime.strptime(
+                        str(datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)),
+                        "%Y-%m-%d %H:%M:%S.%f",
+                    )
+                    respprice = float(resp["data"]["price"])
+                    if resptime != "" and respprice != "": # if format is correct, return
+                        return (
+                            datetime.strptime(
+                                str(datetime.fromtimestamp(int(resp["data"]["time"]) / 1000)),
+                                "%Y-%m-%d %H:%M:%S.%f",
+                            ).strftime("%Y-%m-%d %H:%M:%S"),
+                            respprice,
+                        )
+                except:
+                    trycnt += 1
+                    if trycnt == maxretry:
+                        Logger.warning(
+                            f"Kucoin API Error for Get Ticker - attempted {trycnt} times."
+                        )
+                    time.sleep(15)
+            else: # time wasn't in response
+                now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+                return (now, 0.0)
 
     def getTime(self) -> datetime:
         """Retrieves the exchange time"""
@@ -1209,56 +1231,49 @@ class PublicAPI(AuthAPIBase):
         if not isinstance(uri, str):
             raise TypeError("URI is not a string.")
 
-        # If API returns an error status code, retry request up to 5 times
-        reason, msg = (None, None)
-        trycnt, maxretry, connretry = (1, 5, 10)
-        while trycnt <= connretry:
-            try:
+        try:
+            if method == "GET":
+                resp = requests.get(self._api_url + uri)
+            elif method == "POST":
+                resp = requests.post(self._api_url + uri, json=payload)
+
+            # If API returns an error status code, retry request up to 5 times
+            trycnt, maxretry = (1, 5)
+            while trycnt <= maxretry:
+                if resp.status_code != 200:
+                    resp_message = resp.json()["msg"]
+                    message = f"{method} ({resp.status_code}) {self._api_url}{uri} - {resp_message}"
+                    trycnt += 1
+                    if self.die_on_api_error:
+                        raise Exception(message)
+                    else:
+                        if trycnt == maxretry:
+                            Logger.warning(
+                                f"Kucoin API request error - attempted {trycnt} times: {message}"
+                            )
+                    time.sleep(15)
+                else:
+                    break
+
                 if method == "GET":
                     resp = requests.get(self._api_url + uri)
                 elif method == "POST":
                     resp = requests.post(self._api_url + uri, json=payload)
 
-                trycnt += 1
-                resp.raise_for_status()
+            resp.raise_for_status()
+            return resp.json()
 
-                if resp.status_code == 200 and len(resp.json()) > 0:
-                    return resp.json()
-                else:
-                    msg = f"{method} ({resp.status_code}) {self._api_url}{uri} - {resp.json()['msg']}"
-                    reason = "Invalid Response"
+        except requests.ConnectionError as err:
+            return self.handle_api_error(err, "ConnectionError")
 
-            except requests.ConnectionError as err:
-                reason, msg = ("ConnectionError", err)
+        except requests.exceptions.HTTPError as err:
+            return self.handle_api_error(err, "HTTPError")
 
-            except requests.exceptions.HTTPError as err:
-                reason, msg = ("HTTPError", err)
+        except requests.Timeout as err:
+            return self.handle_api_error(err, "Timeout")
 
-            except requests.Timeout as err:
-                reason, msg = ("TimeoutError", err)
-
-            except json.decoder.JSONDecodeError as err:
-                reason, msg = ("JSONDecodeError", err)
-
-            except Exception as err:
-                reason, msg = ("GeneralException", err)
-
-            if trycnt >= maxretry:
-                if reason in ("ConnectionError", "HTTPError") and trycnt <= connretry:
-                    Logger.error(f"{reason}:  URI: {uri} trying again.  Attempt: {trycnt}")
-                    if trycnt > 5:
-                        time.sleep(30)
-                else:
-                    if msg is None:
-                        msg = f"Uknown Kucoin Public API Error: call to {uri} attempted {trycnt} times, resulted in error"
-                    if reason is None:
-                        reason = "Unknown Error"
-                    return self.handle_api_error(msg, reason)
-            else:
-                time.sleep(15)
-
-        else:
-            return self.handle_api_error(f"Kucoin API Error: call to {uri} attempted {trycnt} times without valid response", "Kucoin Public API Error")
+        except json.decoder.JSONDecodeError as err:
+            return self.handle_api_error(err, "JSONDecodeError")
 
     def handle_api_error(self, err: str, reason: str) -> dict:
         """Handle API errors"""
@@ -1373,7 +1388,6 @@ class WebSocket(AuthAPIBase):
                     msg = json.loads(data)
                 else:
                     msg = {}
-# testing to see if it helps JSON errors
             except ValueError as e:
                 self.on_error(e)
             except Exception as e:
@@ -1471,9 +1485,9 @@ class WebSocketClient(WebSocket):
             "wss://ws-api.kucoin.com",
         ]
 
-        # validate Kucoin Websocket URL
+        # validate Coinbase Pro Websocket URL
         if ws_url not in valid_ws_urls:
-            raise ValueError("Kucoin WebSocket URL is invalid")
+            raise ValueError("Coinbase Pro WebSocket URL is invalid")
 
         # if ws_url[-1] != "/":
         #     ws_url = ws_url + "/"
@@ -1500,8 +1514,8 @@ class WebSocketClient(WebSocket):
             self.time_elapsed = round(
                 (datetime.now() - self.start_time).total_seconds()
             )
-# if any new errors, len(msg) > 0 is new
-        if len(msg) > 0 and "data" in msg and "time" in msg["data"] and "price" in msg["data"]:
+
+        if "data" in msg and "time" in msg["data"] and "price" in msg["data"]:
             # create dataframe from websocket message
             df = pd.DataFrame(
                 columns=["date", "market", "price"],

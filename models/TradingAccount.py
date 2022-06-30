@@ -213,8 +213,6 @@ class TradingAccount:
                     else:
                         time.sleep(5)
                         trycnt += 1
-                        if trycnt >= maxretry:
-                            raise Exception(f"TradingAccount: Kucoin API Error while getting balance.")
                 else:
                     return 0.0
 
@@ -344,8 +342,6 @@ class TradingAccount:
                     else:
                         time.sleep(5)
                         trycnt += 1
-                        if trycnt >= maxretry:
-                            raise Exception(f"TradingAccount: CoinbasePro API Error while getting balance.")
                 else:
                     return 0.0
 

@@ -8,61 +8,9 @@ Upgrade version:
 Upgrade library dependencies (if required):
 - python3 -m pip install -r requirements.txt -U
 
-## [6.4.3] - 2022-06-12
+## [6.3.1] - 2022-06-30
 
-- fixed variable "err" referenced before assignment in Kucoin and CoinbasePro API files that was introduced in v6.4.2
-- consolidated some code in Kucoin and CoinbasePro API files, eliminating a bunch of duplicated lines
-- added dataframe variable to additional execute_job function calls in pycryptobot.py to help minimize API requests
-
-## [6.4.2] - 2022-06-12
-
-- changed a couple config settings so they can be disabled via command line arguments
-- fixed CoinbasePro and Kucoin API errors for standard API access - believe all errors causing restarts are now resolved
-    Only an occasional HTML Error which can't be fixed on our end.
-- moved getTicker call up pycryptobot.py to be inline with getHistoricalData and add a new row data with ticker before technical anlaysis is performed.  This creates more asynchonous data and makes output as accurate as we can based on last call.
-- changed getHistoricalData call to only be called at candle close instead of every iteration and use ticker to fill data between candle open and close.
-- known problems with CoinbasePro and Kucoin websocket functions still exist, but above fixes will make websocket fixes easier
-- fixed standard indicators still being process when custom strategies are enabled
-- consolidated a bunch of locations where code was duplicated based on Exchange
-- added additional dataframe function to PyCyptoBot that will store additionally called dataframes dynamically and update them with ticker date like the main dataframe.  This greatly reduces the number of API calls when running SmartSwitch, checking 
-"bullonly" or wanting to check anything else on a differen granularity than what is currently running. This is used for all additional calls for live and non-live checks, but not for Sims as that has it's own cache system already.  Might be able to clean up Sim code as well in the future.
-- consolidated numerous indicators and signals in Trading_Pta.py to help prevent dataframe fragmentation
-- revised default Strategy_CS.py to be a little less risky and include so new features.  Added extra comments to code.
-- shortened dataframe references in Strategy_CS.py to hopefully be less confusing for users
-- added additional dataframe features to Strategy_CS.py
-- fixed trades occuring any time and not only at candle close.  Can be overridden, but standard trades occur at close as they should again.
-
-## [6.4.1] - 2022-05-05
-
-- reverted some recent changes to Coinbase Pro and Kucoin websocket code that caused incorrect data (still not totally right)
-- fixed last of the regular Kucoin error messages which were related to getTicker
-- added custom strategy files to gitignore so they dont get overwritten by mistake
-- Kucoin API is only return 100 rows of historical data the fix is to pass in a start date which is calculated so that it will return 300 rows of data
-- Fix for bug 'Updater' object has no attribute 'send_message'
-
-## [6.4.0] - 2022-05-03
-
-- fix problems with Kucoin websockets ticker
-- added some additional check to help with JSON errors with Coinbasepro and Kucoin
-- fixed Kucoin cache to properly disable and be disabled by default
-- added trailing sell feature - uses 0% for default if not in config
-- added dynamic trailing stoploss option (fixed version is default if dynamix not enabled)
-- added option for pandas-ta library with option talib and both use custom Trading_Pta.py file
-- added requirements-advanced.txt for installing pandas-ta library as to not require on all installations, use this for other option libraries in future
-    talib requires additional OS installation to function, did not include in any requirements file and is totally optional and loaded automatically if installed
-- added option to create separate Trading_myPta.py file for user edits to prevent overwrites during updating
-- added pandas_ta_help.py file to view pandas-ta help database and test ta signals
-- added option for custom trade indicators and signals with Strategy_CS.py file
-- added option to create serapate Strategy_myCS.py file for user edits to prevent overwrites during updating 
-- added numerous customized indicators and signals in Strategy_CS.py with non-traditional settings.  Uses points system for buy/sell signals
-- added selltriggeroveride option to be used with custom strategy (if/while all signals are strong buy, don't trigger any Sells allowing for greater profit)
-- added options to trailing sell and buy that use the custom points system to trigger immediate buys or sells if the respective setting is active
-- added trailingsellbailout setting - if trailing sell is active and waiting, but price drops drastically, sell immediately at this level
-- revised buy/sell transactions in pycryptobot.py for better recovery if an error occurs during trade processing (revising previous fixes)
-- added adjust_total_periods config option as advanced option to adjust periods/candles to compensate for Kucoin 100 candle max (hope to fix in future), but this option can also be used for traders looking to trade newly added coins on exchanges
-- added manual_trades_only config option for users wanting HODL some coins, but still monitor margin and status.  Manual trade through Telegram Bot or on exchange.
-- made a few spell corrections
-- added some new comments in places needing them
+- hotfix for Coinbase Pro.  Exchange removed minimum trade limit and removed base_min_size variable from API.
 
 ## [6.3.0] - 2022-04-13
 

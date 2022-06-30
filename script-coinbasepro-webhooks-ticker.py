@@ -3,7 +3,6 @@ import sys
 import time
 import signal
 from models.exchange.coinbase_pro import WebSocketClient as CWebSocketClient
-from models.exchange.Granularity import Granularity
 
 
 def cls():
@@ -17,7 +16,7 @@ def signal_handler(signum, frame):
 
 
 try:
-    websocket = CWebSocketClient(["ADA-USD"], Granularity.FIVE_MINUTES)
+    websocket = CWebSocketClient(["ADA-GBP"], 60)
     websocket.start()
     message_count = 0
     while True:
