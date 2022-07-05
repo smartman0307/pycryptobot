@@ -60,16 +60,14 @@ class AppState:
         self.last_buy_fee = 0
         self.last_buy_high = 0
         self.last_sell_size = 0
-        self.trailing_buy = 0
-        self.waiting_buy_price = 0
+
         self.previous_buy_size = 0
         self.open_trade_margin = 0
         self.in_open_trade = False
         self.last_df_index = ""
         self.sell_count = 0
         self.sell_sum = 0
-        self.prevent_loss = 0
-        self.tsl_triggered = 0
+
         self.margintracker = 0
         self.profitlosstracker = 0
         self.feetracker = 0
@@ -80,6 +78,27 @@ class AppState:
             minutes=2
         )
         self.exchange_last_buy = None
+
+         # setup variables from config that may change
+        if app.trailingStopLoss() != None:
+            self.tsl_pcnt = float(app.trailingStopLoss())
+        else:
+            self.tsl_pcnt = None
+        self.tsl_trigger = app.trailingStopLossTrigger()
+
+        # automatic & trigger variables
+        self.pandas_ta_enabled = False
+        self.trading_myPta = False
+        self.prevent_loss = False
+        self.tsl_max = False
+        self.tsl_triggered = False
+        self.trailing_buy = False
+        self.trailing_buy_immediate = False
+        self.waiting_buy_price = 0
+        self.trailing_sell = False
+        self.trailing_sell_immediate = False
+        self.waiting_sell_price = 0
+        self.closed_candle_row = -1
 
     def minimumOrderBase(self, base, balancechk: bool = False):
         self.app.insufficientfunds = False
@@ -98,8 +117,7 @@ class AppState:
                 raise Exception(f"Market not found! ({self.app.getMarket()})")
 
             base = float(base)
-#            base_min = float(product["base_min_size"])
-            base_min = float(0)
+            base_min = float(product["base_min_size"])
 
         elif self.app.getExchange() == Exchange.KUCOIN:
             resp = self.api.authAPI("GET", "api/v1/symbols")
@@ -172,8 +190,7 @@ class AppState:
             price = float(ticker["price"])
 
             quote = float(quote)
-#            base_min = float(product["base_min_size"])
-            base_min = float(0)
+            base_min = float(product["base_min_size"])
 
         elif self.app.getExchange() == Exchange.KUCOIN:
             resp = self.api.authAPI("GET", "api/v1/symbols")
